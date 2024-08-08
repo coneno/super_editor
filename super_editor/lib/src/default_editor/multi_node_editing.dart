@@ -6,6 +6,7 @@ import 'package:super_editor/src/core/document.dart';
 import 'package:super_editor/src/core/document_composer.dart';
 import 'package:super_editor/src/core/editor.dart';
 import 'package:super_editor/src/core/document_selection.dart';
+import 'package:super_editor/src/default_editor/list_items.dart';
 import 'package:super_editor/src/default_editor/selection_upstream_downstream.dart';
 import 'package:super_editor/src/default_editor/text.dart';
 import 'package:super_editor/src/infrastructure/_logging.dart';
@@ -95,19 +96,37 @@ class PasteStructuredContentEditorCommand extends EditCommand {
       return;
     }
 
-    final (upstreamNodeId, _) = _splitPasteParagraph(
-        executor, currentNodeWithSelection.id, (pastePosition.nodePosition as TextNodePosition).offset);
+    if (currentNodeWithSelection.text.text.isEmpty) {
+      document.replaceNode(oldNode: currentNodeWithSelection, newNode: pastedNode);
+      executor.logChanges([
+        DocumentEdit(
+          NodeRemovedEvent(
+            currentNodeWithSelection.id,
+            currentNodeWithSelection,
+          ),
+        ),
+        DocumentEdit(
+          NodeInsertedEvent(
+            pastedNode.id,
+            document.getNodeIndexById(pastedNode.id),
+          ),
+        ),
+      ]);
+    } else {
+      final (upstreamNodeId, _) = _splitPasteParagraph(
+          executor, currentNodeWithSelection.id, (pastePosition.nodePosition as TextNodePosition).offset);
 
-    // Insert the pasted node after the split upstream node.
-    document.insertNodeAfter(
-      existingNode: document.getNodeById(upstreamNodeId)!,
-      newNode: pastedNode,
-    );
-    executor.logChanges([
-      DocumentEdit(
-        NodeInsertedEvent(pastedNode.id, document.getNodeIndexById(pastedNode.id)),
-      )
-    ]);
+      // Insert the pasted node after the split upstream node.
+      document.insertNodeAfter(
+        existingNode: document.getNodeById(upstreamNodeId)!,
+        newNode: pastedNode,
+      );
+      executor.logChanges([
+        DocumentEdit(
+          NodeInsertedEvent(pastedNode.id, document.getNodeIndexById(pastedNode.id)),
+        )
+      ]);
+    }
 
     // Place the caret at the end of the pasted content.
     executor.executeCommand(
@@ -132,7 +151,7 @@ class PasteStructuredContentEditorCommand extends EditCommand {
   ) {
     final textNode = document.getNode(_pastePosition) as TextNode;
     final pasteTextOffset = (_pastePosition.nodePosition as TextPosition).offset;
-    final nodesToInsert = List.from(_content);
+    final nodesToInsert = List<DocumentNode>.from(_content);
 
     // Split the original node in two, around the caret.
     TextNode? downstreamSplitNode;
@@ -173,19 +192,22 @@ class PasteStructuredContentEditorCommand extends EditCommand {
     if (nodesToInsert.isNotEmpty) {
       final lastPastedNode = nodesToInsert.last;
       if (downstreamSplitNode != null && _canMergeNodes(lastPastedNode, downstreamSplitNode)) {
-        // The text in the last pasted node is stylistically compatible with the
+        // The text in the last pasted node is compatible with the
         // existing text in the node that was split after the caret. Therefore, instead
         // of inserting the last pasted node, merge its content with the existing split
-        // node.
+        // node by first replacing the existing node and then inserting its text
+        executor.executeCommand(
+          ReplaceNodeCommand(existingNodeId: downstreamSplitNode.id, newNode: lastPastedNode),
+        );
         executor.executeCommand(
           InsertAttributedTextCommand(
             documentPosition: DocumentPosition(
-              nodeId: downstreamSplitNode.id,
-              nodePosition: const TextNodePosition(offset: 0),
+              nodeId: lastPastedNode.id,
+              nodePosition: (lastPastedNode as TextNode).endPosition,
             ),
-            // Only text nodes are merge-able, therefore we know that the last pasted node
+            // Only text nodes are merge-able, therefore we know that the downStreamSplitNode
             // is a TextNode.
-            textToInsert: (lastPastedNode as TextNode).text,
+            textToInsert: downstreamSplitNode.text,
           ),
         );
 
@@ -259,8 +281,8 @@ class PasteStructuredContentEditorCommand extends EditCommand {
       return false;
     }
 
-    if (existingNode.metadata['blockType'] != newNode.metadata['blockType']) {
-      // Text nodes with different block types cannot be merged, e.g., "Header 1" with a "Blockquote".
+    if (existingNode.text.text.isEmpty && existingNode is! ListItemNode) {
+      // Replace empty nodes rather than merging into them, unless they are list items.
       return false;
     }
 

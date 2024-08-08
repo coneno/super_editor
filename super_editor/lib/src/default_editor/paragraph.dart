@@ -584,7 +584,7 @@ class SplitParagraphCommand extends EditCommand {
 
     final document = context.document;
     final node = document.getNodeById(nodeId);
-    if (node is! ParagraphNode) {
+    if (node is! TextNode) {
       editorDocLog.info('WARNING: Cannot split paragraph for node of type: $node.');
       return;
     }
@@ -629,7 +629,6 @@ class SplitParagraphCommand extends EditCommand {
     final newNode = ParagraphNode(
       id: newNodeId,
       text: endText,
-      indent: node.indent,
       metadata: replicateExistingMetadata ? node.copyMetadata() : {},
     );
 
