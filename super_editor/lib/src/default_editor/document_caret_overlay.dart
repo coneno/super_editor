@@ -168,18 +168,18 @@ class CaretDocumentOverlayState extends DocumentLayoutLayerState<CaretDocumentOv
     Rect caretRect =
         documentLayout.getEdgeForPosition(documentSelection.extent)!.translate(-widget.caretStyle.width / 2, 0.0);
 
-    final overlayBox = context.findRenderObject() as RenderBox?;
-    if (overlayBox != null && overlayBox.hasSize && caretRect.left + widget.caretStyle.width >= overlayBox.size.width) {
-      // Ajust the caret position to make it entirely visible because it's currently placed
-      // partially or entirely outside of the layers' bounds. This can happen for downstream selections
-      // of block components that take all the available width.
-      caretRect = Rect.fromLTWH(
-        overlayBox.size.width - widget.caretStyle.width,
-        caretRect.top,
-        caretRect.width,
-        caretRect.height,
-      );
-    }
+    // final overlayBox = context.findRenderObject() as RenderBox?;
+    // if (overlayBox != null && overlayBox.hasSize && caretRect.left + widget.caretStyle.width >= overlayBox.size.width) {
+    //   // Ajust the caret position to make it entirely visible because it's currently placed
+    //   // partially or entirely outside of the layers' bounds. This can happen for downstream selections
+    //   // of block components that take all the available width.
+    //   caretRect = Rect.fromLTWH(
+    //     overlayBox.size.width - widget.caretStyle.width,
+    //     caretRect.top,
+    //     caretRect.width,
+    //     caretRect.height,
+    //   );
+    // }
 
     return caretRect;
   }
