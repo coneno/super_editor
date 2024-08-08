@@ -30,7 +30,7 @@ class SuperEditorPopover extends StatelessWidget {
     super.key,
     required this.popoverFocusNode,
     required this.editorFocusNode,
-    this.onKeyEvent,
+    // this.onKeyEvent,
     required this.child,
   });
 
@@ -43,7 +43,7 @@ class SuperEditorPopover extends StatelessWidget {
   final FocusNode editorFocusNode;
 
   /// Callback that notifies key events.
-  final FocusOnKeyEventCallback? onKeyEvent;
+  // final FocusOnKeyEventCallback? onKeyEvent;
 
   /// The popover to display.
   final Widget child;
@@ -55,7 +55,8 @@ class SuperEditorPopover extends StatelessWidget {
       child: Focus(
         focusNode: popoverFocusNode,
         parentNode: editorFocusNode,
-        onKeyEvent: onKeyEvent,
+        // onKeyEvent: onKeyEvent,
+        canRequestFocus: false,
         child: child,
       ),
     );
