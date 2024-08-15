@@ -286,7 +286,7 @@ class ActionTagComposingReaction extends EditReaction {
     _healCancelledTags(requestDispatcher, document, changeList);
 
     if (composer.selection == null) {
-      _cancelComposingTag(requestDispatcher);
+      _cancelComposingTags(requestDispatcher, document);
       editorContext.composingActionTag.value = null;
       _onUpdateComposingActionTag(null);
       return;
@@ -322,7 +322,7 @@ class ActionTagComposingReaction extends EditReaction {
     }
 
     if (tagAroundPosition == null) {
-      _cancelComposingTag(requestDispatcher);
+      _cancelComposingTags(requestDispatcher, document);
       editorContext.composingActionTag.value = null;
       _onUpdateComposingActionTag(null);
       return;
@@ -426,32 +426,39 @@ class ActionTagComposingReaction extends EditReaction {
     ]);
   }
 
-  void _cancelComposingTag(RequestDispatcher requestDispatcher) {
-    if (_composingTag == null) {
-      return;
+  void _cancelComposingTags(RequestDispatcher requestDispatcher, MutableDocument document) {
+    _composingTag = null;
+    final List<EditRequest> requests = [];
+
+    for (final node in document) {
+      if (node is! TextNode) {
+        continue;
+      }
+
+      final composingTagRanges = node.text.getAttributionSpansInRange(
+        attributionFilter: (a) => a == actionTagComposingAttribution,
+        range: SpanRange(0, node.text.length - 1),
+      );
+
+      for (final range in composingTagRanges) {
+        requests.add(
+          RemoveTextAttributionsRequest(
+            documentRange: node.selectionBetween(range.start, range.end + 1),
+            attributions: {actionTagComposingAttribution},
+          ),
+        );
+        if (node.text.substring(range.start, range.start + 1) == _tagRule.trigger) {
+          requests.add(
+            AddTextAttributionsRequest(
+              documentRange: node.selectionBetween(range.start, range.start + 1),
+              attributions: {actionTagCancelledAttribution},
+            ),
+          );
+        }
+      }
     }
 
-    final composingTag = _composingTag!;
-    _composingTag = null;
-
-    requestDispatcher.execute([
-      RemoveTextAttributionsRequest(
-        documentRange: DocumentSelection(
-          base: composingTag.start,
-          extent: composingTag.end,
-        ),
-        attributions: {actionTagComposingAttribution},
-      ),
-      AddTextAttributionsRequest(
-        documentRange: DocumentSelection(
-          base: composingTag.start,
-          extent: composingTag.start.copyWith(
-            nodePosition: TextNodePosition(offset: composingTag.startOffset + 1),
-          ),
-        ),
-        attributions: {actionTagCancelledAttribution},
-      ),
-    ]);
+    requestDispatcher.execute(requests);
   }
 }
 
