@@ -437,7 +437,7 @@ class ActionTagComposingReaction extends EditReaction {
 
       final composingTagRanges = node.text.getAttributionSpansInRange(
         attributionFilter: (a) => a == actionTagComposingAttribution,
-        range: SpanRange(0, node.text.length - 1),
+        range: SpanRange(0, node.text.length),
       );
 
       for (final range in composingTagRanges) {
