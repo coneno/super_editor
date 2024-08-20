@@ -657,6 +657,11 @@ Updating drag selection:
           ? extentParagraphSelection.extent
           : extentParagraphSelection.base;
     } else if (selectionType == SelectionType.word) {
+      if (_wordSelectionUpstream == null) {
+        _clearSelection();
+        return;
+      }
+
       final dragDirection = widget.document.getAffinityBetween(
         base: _wordSelectionUpstream!,
         extent: selection!.extent,
