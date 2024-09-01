@@ -28,6 +28,7 @@ import 'package:super_editor/src/infrastructure/platforms/android/magnifier.dart
 import 'package:super_editor/src/infrastructure/platforms/android/selection_handles.dart';
 import 'package:super_editor/src/infrastructure/platforms/mobile_documents.dart';
 import 'package:super_editor/src/infrastructure/signal_notifier.dart';
+import 'package:super_editor/src/infrastructure/sliver_hybrid_stack.dart';
 import 'package:super_editor/src/infrastructure/touch_controls.dart';
 
 import '../infrastructure/document_gestures.dart';
@@ -604,9 +605,7 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
   /// If this widget doesn't have an ancestor `Scrollable`, then this
   /// widget includes a `ScrollView` and this `State`'s render object
   /// is the viewport `RenderBox`.
-  RenderBox get viewportBox =>
-      (context.findAncestorScrollableWithVerticalScroll?.context.findRenderObject() ?? context.findRenderObject())
-          as RenderBox;
+  RenderBox get viewportBox => context.findViewportBox();
 
   Offset _getDocumentOffsetFromGlobalOffset(Offset globalOffset) {
     return _docLayout.getDocumentOffsetFromAncestorOffset(globalOffset);
@@ -700,6 +699,19 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
         ..hideExpandedHandles()
         ..hideMagnifier()
         ..hideToolbar();
+      return;
+    }
+
+    // Only scroll the editor to reveal the selection extent if the selection is
+    // collapsed. If the selection is expanded, the user is likely dragging
+    // a selection handle, which already causes auto-scrolling to reveal
+    // the selection extent. If the selection is expanded because the user
+    // double-tapped, the first tap will have already scrolled the editor to
+    // reveal the selection.
+    if (widget.selection.value?.isCollapsed == true) {
+      onNextFrame((_) {
+        _ensureSelectionExtentIsVisible();
+      });
     }
   }
 
@@ -1102,6 +1114,9 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
     final fingerDocumentPosition = _docLayout.getDocumentPositionNearestToOffset(
       _startDragPositionOffset! + fingerDragDelta - Offset(0, scrollDelta),
     )!;
+    if (fingerDocumentPosition != widget.selection.value!.extent) {
+      HapticFeedback.lightImpact();
+    }
     _selectPosition(fingerDocumentPosition);
   }
 
@@ -1471,6 +1486,7 @@ class SuperEditorAndroidControlsOverlayManagerState extends State<SuperEditorAnd
   void _updateDragHandleSelection(DocumentSelection newSelection) {
     if (newSelection != widget.selection.value) {
       widget.setSelection(newSelection);
+      HapticFeedback.lightImpact();
     }
   }
 
@@ -1663,10 +1679,15 @@ class SuperEditorAndroidControlsOverlayManagerState extends State<SuperEditorAnd
 
   @override
   Widget build(BuildContext context) {
-    return OverlayPortal(
-      controller: _overlayController,
-      overlayChildBuilder: _buildOverlay,
-      child: widget.child ?? const SizedBox(),
+    return SliverHybridStack(
+      children: [
+        widget.child!,
+        OverlayPortal(
+          controller: _overlayController,
+          overlayChildBuilder: _buildOverlay,
+          child: const SizedBox(),
+        ),
+      ],
     );
   }
 
