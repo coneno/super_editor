@@ -889,8 +889,7 @@ class CommonEditorOperations {
     if (composer.selection!.extent.nodePosition is TextNodePosition) {
       final textPosition = composer.selection!.extent.nodePosition as TextNodePosition;
       final textNode = (document.getNodeById(composer.selection!.extent.nodeId) as TextNode);
-      final text = textNode.text.text;
-      if (textPosition.offset == text.length) {
+      if (textPosition.offset == textNode.text.text.length) {
         final nodeAfter = document.getNodeAfter(textNode);
 
         if (nodeAfter is TextNode) {
