@@ -888,10 +888,10 @@ class CommonEditorOperations {
 
     if (composer.selection!.extent.nodePosition is TextNodePosition) {
       final textPosition = composer.selection!.extent.nodePosition as TextNodePosition;
-      final text = (document.getNodeById(composer.selection!.extent.nodeId) as TextNode).text.text;
+      final textNode = (document.getNodeById(composer.selection!.extent.nodeId) as TextNode);
+      final text = textNode.text.text;
       if (textPosition.offset == text.length) {
-        final node = document.getNodeById(composer.selection!.extent.nodeId)!;
-        final nodeAfter = document.getNodeAfter(node);
+        final nodeAfter = document.getNodeAfter(textNode);
 
         if (nodeAfter is TextNode) {
           // The caret is at the end of one TextNode and is followed by
@@ -904,7 +904,12 @@ class CommonEditorOperations {
             // The caret is at the end of a TextNode, but the next node
             // is not a TextNode. Move the document selection to the
             // next node.
-            return _moveSelectionToBeginningOfNextNode();
+            // Also delete the TextNode if it is empty.
+            final movedSelection = _moveSelectionToBeginningOfNextNode();
+            if (movedSelection && textNode.text.text.isEmpty) {
+              deleteNonSelectedNode(textNode);
+            }
+            return movedSelection;
           } else {
             // The next node/component isn't selectable. Delete it.
             deleteNonSelectedNode(nodeAfter);
