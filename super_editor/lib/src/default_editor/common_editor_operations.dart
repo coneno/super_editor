@@ -2389,7 +2389,7 @@ class PasteEditorCommand extends EditCommand {
       attributedLines.add(
         AttributedText(
           line,
-          _findUrlSpansInText(pastedText: lines.first),
+          // _findUrlSpansInText(pastedText: lines.first),
         ),
       );
     }
