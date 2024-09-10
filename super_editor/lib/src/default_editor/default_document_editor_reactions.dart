@@ -669,8 +669,12 @@ class LinkifyReaction extends EditReaction {
         humanize: false,
         looseUrl: true,
       ),
+      linkifiers: [EmailLinkifier(), UrlLinkifier()],
     );
-    final int linkCount = extractedLinks.fold(0, (value, element) => element is UrlElement ? value + 1 : value);
+
+    final int linkCount = extractedLinks.fold(
+        0, (value, element) => (element is UrlElement || element is EmailElement) ? value + 1 : value);
+
     if (linkCount != 1) {
       // There's either zero links, or more than one link. Either way we fizzle.
       return;
@@ -679,7 +683,7 @@ class LinkifyReaction extends EditReaction {
     // The word is a single URL. Linkify it.
     try {
       // Try to parse the word as a link.
-      final uri = parseLink(word);
+      final uri = extractedLinks.first is EmailElement ? parseEmail(word) : parseLink(word);
 
       text.addAttribution(
         LinkAttribution.fromUri(uri),
@@ -895,6 +899,13 @@ Uri parseLink(String text) {
   final uri = text.startsWith("http://") || text.startsWith("https://") //
       ? Uri.parse(text)
       : Uri.parse("https://$text");
+  return uri;
+}
+
+Uri parseEmail(String text) {
+  final uri = text.startsWith("mailto:") //
+      ? Uri.parse(text)
+      : Uri.parse("mailto:$text");
   return uri;
 }
 
