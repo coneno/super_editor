@@ -254,6 +254,7 @@ final defaultRequestHandlers = List.unmodifiable(<EditRequestHandler>[
       ? PasteEditorCommand(
           content: request.content,
           pastePosition: request.pastePosition,
+          createLinkAttributions: request.createLinkAttributions,
         )
       : null,
 ]);

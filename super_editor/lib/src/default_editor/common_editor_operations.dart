@@ -2253,21 +2253,25 @@ class PasteEditorRequest implements EditRequest {
   PasteEditorRequest({
     required this.content,
     required this.pastePosition,
+    this.createLinkAttributions = false,
   });
 
   final String content;
   final DocumentPosition pastePosition;
+  final bool createLinkAttributions;
 }
 
 class PasteEditorCommand extends EditCommand {
   PasteEditorCommand({
     required String content,
     required DocumentPosition pastePosition,
+    required this.createLinkAttributions,
   })  : _content = content,
         _pastePosition = pastePosition;
 
   final String _content;
   final DocumentPosition _pastePosition;
+  final bool createLinkAttributions;
 
   // The [_content] as [DocumentNode]s so that we only generate node IDs one
   // time. This is critical for undo behavior to work as expected.
@@ -2389,7 +2393,7 @@ class PasteEditorCommand extends EditCommand {
       attributedLines.add(
         AttributedText(
           line,
-          // _findUrlSpansInText(pastedText: lines.first),
+          createLinkAttributions ? _findUrlSpansInText(pastedText: lines.first) : null,
         ),
       );
     }
@@ -2412,14 +2416,17 @@ class PasteEditorCommand extends EditCommand {
           humanize: false,
           looseUrl: true,
         ),
+        linkifiers: const [EmailLinkifier(), UrlLinkifier()],
       );
 
-      final int linkCount = extractedLinks.fold(0, (value, element) => element is UrlElement ? value + 1 : value);
+      final int linkCount = extractedLinks.fold(
+          0, (value, element) => (element is UrlElement || element is EmailElement) ? value + 1 : value);
+
       if (linkCount == 1) {
         // The word is a single URL. Linkify it.
         late final Uri uri;
         try {
-          uri = parseLink(word);
+          uri = extractedLinks.first is EmailElement ? parseEmail(word) : parseLink(word);
         } catch (exception) {
           // Something went wrong when trying to parse links. This can happen, for example,
           // due to Markdown syntax around a link, e.g., [My Link](www.something.com). I'm

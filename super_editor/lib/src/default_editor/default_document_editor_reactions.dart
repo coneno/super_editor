@@ -669,7 +669,7 @@ class LinkifyReaction extends EditReaction {
         humanize: false,
         looseUrl: true,
       ),
-      linkifiers: [EmailLinkifier(), UrlLinkifier()],
+      linkifiers: const [EmailLinkifier(), UrlLinkifier()],
     );
 
     final int linkCount = extractedLinks.fold(
