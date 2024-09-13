@@ -556,13 +556,17 @@ class ImageUrlConversionReaction extends EditReaction {
 class LinkifyReaction extends EditReaction {
   const LinkifyReaction({
     this.updatePolicy = LinkUpdatePolicy.preserve,
+    this.shouldReact,
   });
 
   /// Configures how a change in a URL should be handled.
   final LinkUpdatePolicy updatePolicy;
+  final bool Function()? shouldReact;
 
   @override
   void react(EditContext editContext, RequestDispatcher requestDispatcher, List<EditEvent> edits) {
+    if (!(shouldReact?.call() ?? true)) return;
+
     final document = editContext.document;
     final composer = editContext.find<MutableDocumentComposer>(Editor.composerKey);
     final selection = composer.selection;
