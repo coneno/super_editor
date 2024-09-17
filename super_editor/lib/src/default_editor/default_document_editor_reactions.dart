@@ -620,7 +620,7 @@ class LinkifyReaction extends EditReaction {
         // The caret sits directly after an inserted space. Get the word before
         // the space from the document, and linkify, if it fits a schema.
         final textNode = document.getNodeById(linkifyCandidate.nodeId) as TextNode;
-        _extractUpstreamWordAndLinkify(textNode.text, linkifyCandidate.offset);
+        extractUpstreamWordAndLinkify(textNode.text, linkifyCandidate.offset);
       } else if ((edit is SubmitParagraphIntention && edit.isStart) ||
           (edit is SplitParagraphIntention && edit.isStart) ||
           (edit is SplitListItemIntention && edit.isStart) ||
@@ -638,7 +638,7 @@ class LinkifyReaction extends EditReaction {
         if (nextEdit is DocumentEdit && nextEdit.change is NodeChangeEvent) {
           final editedNode = document.getNodeById((nextEdit.change as NodeChangeEvent).nodeId);
           if (editedNode is TextNode) {
-            _extractUpstreamWordAndLinkify(editedNode.text, editedNode.text.length);
+            extractUpstreamWordAndLinkify(editedNode.text, editedNode.text.length);
           }
         }
       }
@@ -651,7 +651,7 @@ class LinkifyReaction extends EditReaction {
   }
 
   /// Extracts a word ending at [endOffset] tries to linkify it.
-  void _extractUpstreamWordAndLinkify(AttributedText text, int endOffset) {
+  void extractUpstreamWordAndLinkify(AttributedText text, int endOffset) {
     final wordStartOffset = _moveOffsetByWord(text.text, endOffset, true) ?? 0;
     final word = text.substring(wordStartOffset, endOffset);
 
