@@ -1,6 +1,7 @@
 import 'package:attributed_text/attributed_text.dart';
 import 'package:flutter/painting.dart';
 import 'package:super_editor/src/infrastructure/_logging.dart';
+import 'package:super_editor/super_editor.dart';
 
 /// Creates the desired [TextStyle] given the [attributions] associated
 /// with a span of text.
@@ -30,12 +31,14 @@ extension ComputeTextSpan on AttributedText {
     }
 
     final collapsedSpans = spans.collapseSpans(contentLength: text.length);
-    final textSpans = collapsedSpans
-        .map((attributedSpan) => TextSpan(
-              text: text.substring(attributedSpan.start, attributedSpan.end + 1),
-              style: styleBuilder(attributedSpan.attributions),
-            ))
-        .toList();
+    final textSpans = collapsedSpans.map((attributedSpan) {
+      final linkAttributions = attributedSpan.attributions.whereType<LinkAttribution>().toList();
+      return TextSpan(
+        text: text.substring(attributedSpan.start, attributedSpan.end + 1),
+        style: styleBuilder(attributedSpan.attributions),
+        semanticsLabel: linkAttributions.isNotEmpty ? linkAttributions.first.url : null,
+      );
+    }).toList();
 
     return textSpans.length == 1
         ? textSpans.first
