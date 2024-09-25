@@ -872,20 +872,7 @@ class IndentTaskCommand extends EditCommand {
       return;
     }
 
-    final taskIndex = document.getNodeIndexById(task.id);
-    if (taskIndex == 0) {
-      // There's no task above this task, therefore it can't be indented.
-      return;
-    }
-    final taskAbove = document.getNodeAt(taskIndex - 1);
-    if (taskAbove is! TaskNode) {
-      // There's no task above this task, therefore it can't be indented.
-      return;
-    }
-
-    final maxIndent = taskAbove.indent + 1;
-    if (task.indent >= maxIndent) {
-      // This task is already at max indentation.
+    if (task.indent >= 6) {
       return;
     }
 
