@@ -914,20 +914,20 @@ class UnIndentTaskCommand extends EditCommand {
       return;
     }
 
-    final subTasks = <TaskNode>[];
-    int index = document.getNodeIndexById(task.id) + 1;
-    while (index < document.nodeCount) {
-      final subTask = document.getNodeAt(index);
-      if (subTask is! TaskNode) {
-        break;
-      }
-      if (subTask.indent <= task.indent) {
-        break;
-      }
+    // final subTasks = <TaskNode>[];
+    // int index = document.getNodeIndexById(task.id) + 1;
+    // while (index < document.nodeCount) {
+    //   final subTask = document.getNodeAt(index);
+    //   if (subTask is! TaskNode) {
+    //     break;
+    //   }
+    //   if (subTask.indent <= task.indent) {
+    //     break;
+    //   }
 
-      subTasks.add(subTask);
-      index += 1;
-    }
+    //   subTasks.add(subTask);
+    //   index += 1;
+    // }
 
     final changeLog = <DocumentEdit>[];
 
@@ -940,14 +940,14 @@ class UnIndentTaskCommand extends EditCommand {
     );
 
     // Decrease the indentation of the sub-tasks.
-    for (final subTask in subTasks) {
-      subTask.indent -= 1;
-      changeLog.add(
-        DocumentEdit(
-          NodeChangeEvent(subTask.id),
-        ),
-      );
-    }
+    // for (final subTask in subTasks) {
+    //   subTask.indent -= 1;
+    //   changeLog.add(
+    //     DocumentEdit(
+    //       NodeChangeEvent(subTask.id),
+    //     ),
+    //   );
+    // }
 
     // Log all changes.
     executor.logChanges(changeLog);
