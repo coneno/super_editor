@@ -801,6 +801,7 @@ class SplitExistingTaskCommand extends EditCommand {
       id: newNodeId ?? Editor.createNodeId(),
       text: node.text.copyText(splitOffset),
       isComplete: false,
+      indent: node.indent,
     );
 
     // Remove the text after the caret from the currently selected TaskNode.
