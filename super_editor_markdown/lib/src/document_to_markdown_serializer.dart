@@ -218,7 +218,8 @@ class TaskNodeSerializer extends NodeTypedDocumentNodeMarkdownSerializer<TaskNod
 
   @override
   String doSerialization(Document document, TaskNode node) {
-    return '- [${node.isComplete ? 'x' : ' '}] ${node.text.text}';
+    final indent = List.generate(node.indent, (index) => '  ').join('');
+    return '$indent- [${node.isComplete ? 'x' : ' '}] ${node.text.text}';
   }
 }
 
