@@ -79,7 +79,7 @@ class TaskNode extends TextNode {
 
   @override
   bool hasEquivalentContent(DocumentNode other) {
-    return other is TaskNode && isComplete == other.isComplete && text == other.text;
+    return other is TaskNode && isComplete == other.isComplete && text == other.text && indent == other.indent;
   }
 
   @override
