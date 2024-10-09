@@ -197,11 +197,9 @@ class ParagraphNodeSerializer extends NodeTypedDocumentNodeMarkdownSerializer<Pa
       buffer.write(node.text.toMarkdown());
     }
 
-    // We're not at the end of the document yet. Add a blank line after the
-    // paragraph so that we can tell the difference between separate
-    // paragraphs vs. newlines within a single paragraph.
+    // Our "paragraphs" are just newlines. Therefore, we only want to insert an empty line if the next node is not a paragraph.
     final nodeIndex = document.getNodeIndexById(node.id);
-    if (nodeIndex != document.nodeCount - 1) {
+    if (nodeIndex != document.nodeCount - 1 && document.getNodeAt(nodeIndex + 1) is! ParagraphNode) {
       buffer.writeln();
     }
 
