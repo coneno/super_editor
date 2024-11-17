@@ -7,6 +7,8 @@ import 'package:super_editor/src/core/document_composer.dart';
 import 'package:super_editor/src/core/editor.dart';
 import 'package:super_editor/src/core/document_selection.dart';
 import 'package:super_editor/src/default_editor/list_items.dart';
+import 'package:super_editor/src/default_editor/box_component.dart';
+import 'package:super_editor/src/default_editor/common_editor_operations.dart';
 import 'package:super_editor/src/default_editor/selection_upstream_downstream.dart';
 import 'package:super_editor/src/default_editor/text.dart';
 import 'package:super_editor/src/infrastructure/_logging.dart';
@@ -724,11 +726,34 @@ class DeleteContentCommand extends EditCommand {
   void execute(EditContext context, CommandExecutor executor) {
     _log.log('DeleteSelectionCommand', 'DocumentEditor: deleting selection: $documentRange');
     final document = context.document;
+    final selection = context.composer.selection;
     final nodes = document.getNodesInside(documentRange.start, documentRange.end);
     final normalizedRange = documentRange.normalize(document);
 
     if (nodes.length == 1) {
       // This is a selection within a single node.
+
+      if (!nodes.first.isDeletable) {
+        // The node is not deletable. Abort the deletion.
+        if (nodes.first is BlockNode && selection?.isCollapsed == false) {
+          // On iOS, pressing backspace generates a non-text delta expanding the selection
+          // prior to its deletion. Since we can't delete the block, we'll just collapse the
+          // selection to the end of the block.
+          executor.executeCommand(
+            ChangeSelectionCommand(
+              DocumentSelection.collapsed(
+                position: DocumentPosition(
+                  nodeId: nodes.first.id,
+                  nodePosition: nodes.first.endPosition,
+                ),
+              ),
+              SelectionChangeType.placeCaret,
+              SelectionReason.contentChange,
+            ),
+          );
+        }
+        return;
+      }
       final changeList = _deleteSelectionWithinSingleNode(
         document: document,
         normalizedRange: normalizedRange,
@@ -736,6 +761,7 @@ class DeleteContentCommand extends EditCommand {
       );
 
       executor.logChanges(changeList);
+
       return;
     }
 
@@ -749,7 +775,10 @@ class DeleteContentCommand extends EditCommand {
     if (endNode == null) {
       throw Exception('Could not locate end node for DeleteSelectionCommand: ${normalizedRange.end}');
     }
-    final endNodeIndex = document.getNodeIndexById(endNode.id);
+
+    // We expect that this command will only be called when the delete range
+    // contains at least one deletable node.
+    final firstDeletableNodeId = nodes.firstWhere((node) => node.isDeletable).id;
 
     executor.logChanges(
       _deleteNodesBetweenFirstAndLast(
@@ -759,38 +788,63 @@ class DeleteContentCommand extends EditCommand {
       ),
     );
 
-    _log.log('DeleteSelectionCommand', ' - deleting partial selection within the starting node.');
-    executor.logChanges(
-      _deleteRangeWithinNodeFromPositionToEnd(
-        document: document,
-        node: startNode,
-        nodePosition: normalizedRange.start.nodePosition,
-        replaceWithParagraph: false,
-      ),
-    );
+    if (startNode.isDeletable) {
+      _log.log('DeleteSelectionCommand', ' - deleting partial selection within the starting node.');
+      executor.logChanges(
+        _deleteRangeWithinNodeFromPositionToEnd(
+          document: document,
+          node: startNode,
+          nodePosition: normalizedRange.start.nodePosition,
+          replaceWithParagraph: false,
+        ),
+      );
+    }
 
-    _log.log('DeleteSelectionCommand', ' - deleting partial selection within ending node.');
-    executor.logChanges(
-      _deleteRangeWithinNodeFromStartToPosition(
-        document: document,
-        node: endNode,
-        nodePosition: normalizedRange.end.nodePosition,
-      ),
+    if (endNode.isDeletable) {
+      _log.log('DeleteSelectionCommand', ' - deleting partial selection within ending node.');
+      executor.logChanges(
+        _deleteRangeWithinNodeFromStartToPosition(
+          document: document,
+          node: endNode,
+          nodePosition: normalizedRange.end.nodePosition,
+        ),
+      );
+    }
+
+    final wereAllDeletableNodesInRangeDeleted = nodes.every(
+      (node) => document.getNodeById(node.id) == null || !node.isDeletable,
     );
+    final hasNonDeletableNodesInRange = nodes.any((node) => !node.isDeletable);
 
     // If all selected nodes were deleted, e.g., the user selected from
     // the beginning of the first node to the end of the last node, then
     // we need insert an empty paragraph node so that there's a place
     // to position the caret.
-    if (document.getNodeById(startNode.id) == null && document.getNodeById(endNode.id) == null) {
-      final insertIndex = min(startNodeIndex, endNodeIndex);
+    if (wereAllDeletableNodesInRangeDeleted) {
+      // If there are any non-deletable nodes in the range, insert the new node
+      // after the last non-deletable node. Otherwise, insert the new node at
+      // the position where the first selected node was.
+      final insertIndex = hasNonDeletableNodesInRange //
+          ? document.getNodeIndexById(nodes.lastWhere((node) => !node.isDeletable).id) + 1
+          : startNodeIndex;
+
+      // If one of the edge nodes is deletable, we can use it as the ID for the
+      // new empty paragraph. Otherwise, use the ID of the first deletable node in the range.
+      // We expect that this method is never called when there are no deletable nodes
+      // in the range.
+      final emptyParagraphId = startNode.isDeletable
+          ? startNode.id
+          : endNode.isDeletable
+              ? endNode.id
+              : firstDeletableNodeId;
+
       document.insertNodeAt(
         insertIndex,
-        ParagraphNode(id: startNode.id, text: AttributedText()),
+        ParagraphNode(id: emptyParagraphId, text: AttributedText()),
       );
       executor.logChanges([
         DocumentEdit(
-          NodeChangeEvent(startNode.id),
+          NodeChangeEvent(emptyParagraphId),
         )
       ]);
     }
@@ -905,6 +959,10 @@ class DeleteContentCommand extends EditCommand {
     for (int i = endIndex - 1; i > startIndex; --i) {
       _log.log('_deleteNodesBetweenFirstAndLast', ' - deleting node $i: ${document.getNodeAt(i)?.id}');
       final removedNode = document.getNodeAt(i)!;
+      if (!removedNode.isDeletable) {
+        // This node is not deletable. Ignore it.
+        continue;
+      }
       changes.add(DocumentEdit(
         NodeRemovedEvent(removedNode.id, removedNode),
       ));
@@ -1060,6 +1118,150 @@ class DeleteContentCommand extends EditCommand {
           NodeRemovedEvent(node.id, node),
         )
       ];
+    }
+  }
+}
+
+/// Deletes the selected content within the document.
+///
+/// Any selected, non-deletable nodes are retained without removal.
+///
+/// The [affinity] defines the direction to where the user is trying to
+/// delete. For example, if the users presses the backspace key, the
+/// [affinity] should be [TextAffinity.upstream]. If the user presses the
+/// delete key, the [affinity] should be [TextAffinity.downstream]. The
+/// [affinity] influences the new selection after the deletion when the
+/// dowstream of upstream node is non-deletable. For example, pressing
+/// backspace when the upstream node is not deletable doesn't change
+/// the selection, but pressing delete does.
+class DeleteSelectionRequest implements EditRequest {
+  const DeleteSelectionRequest(this.affinity);
+
+  final TextAffinity affinity;
+}
+
+class DeleteSelectionCommand extends EditCommand {
+  DeleteSelectionCommand({
+    required this.affinity,
+  });
+
+  final TextAffinity affinity;
+
+  @override
+  HistoryBehavior get historyBehavior => HistoryBehavior.undoable;
+
+  @override
+  String describe() => "Delete selected content";
+
+  @override
+  void execute(EditContext context, CommandExecutor executor) {
+    final document = context.document;
+    final composer = context.composer;
+
+    final selection = composer.selection;
+    if (selection == null) {
+      return;
+    }
+
+    if (selection.base.nodeId == selection.extent.nodeId) {
+      // The selection is contained within a single node. Prevent the deletion
+      // if the node is non-deletable. When there are multiple nodes selected,
+      // non-deletable nodes are ignored inside DeleteContentCommand.
+      final node = document.getNodeById(selection.base.nodeId)!;
+      if (!node.isDeletable) {
+        if (node is BlockNode && !selection.isCollapsed) {
+          // On iOS, pressing backspace generates a non-text delta expanding the selection
+          // prior to its deletion. Since we can't delete the block, we'll just collapse the
+          // selection to the end of the block.
+          executor.executeCommand(
+            ChangeSelectionCommand(
+              DocumentSelection.collapsed(
+                position: DocumentPosition(
+                  nodeId: node.id,
+                  nodePosition: node.endPosition,
+                ),
+              ),
+              SelectionChangeType.placeCaret,
+              SelectionReason.contentChange,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    final nodes = document.getNodesInside(selection.start, selection.end);
+    if (nodes.every((node) => !node.isDeletable)) {
+      // All selected nodes are non-deletable. Do nothing.
+      return;
+    }
+
+    if (nodes.length == 2) {
+      final normalizedSelection = selection.normalize(document);
+      final nodeAbove = document.getNode(normalizedSelection.start)!;
+      final nodeBelow = document.getNode(normalizedSelection.end)!;
+
+      if (nodeAbove is BlockNode &&
+          !nodeAbove.isDeletable &&
+          normalizedSelection.end.nodePosition.isEquivalentTo(nodeBelow.beginningPosition)) {
+        // We have the following scenario, where |> and <| represent the selection:
+        //
+        // <non-deletable node>|>
+        // <|text
+
+        if (affinity == TextAffinity.upstream) {
+          // The user is trying to delete using backspace (we assume this because the deletion is in
+          // downstream direction). Do nothing.
+          return;
+        }
+
+        // The user is trying to delete using the delete key (we assume this because the deletion is in
+        // upstream direction). Move the selection to the node below.
+        executor.executeCommand(
+          ChangeSelectionCommand(
+            DocumentSelection.collapsed(position: normalizedSelection.end),
+            SelectionChangeType.deleteContent,
+            SelectionReason.userInteraction,
+          ),
+        );
+        return;
+      }
+
+      if (nodeBelow is BlockNode &&
+          !nodeBelow.isDeletable &&
+          normalizedSelection.start.nodePosition.isEquivalentTo(nodeAbove.endPosition)) {
+        // We have the following scenario, where |> and <| represent the selection:
+        //
+        // text|>
+        // <|<non-deletable node>
+
+        if (affinity == TextAffinity.downstream) {
+          // The user is trying to delete using the delete key (we assume this because the deletion is in
+          // downstream direction). Do nothing.
+          return;
+        }
+      }
+    }
+
+    final newSelectionPosition = CommonEditorOperations.getDocumentPositionAfterExpandedDeletion(
+      document: document,
+      selection: selection,
+    );
+
+    executor.executeCommand(
+      DeleteContentCommand(
+        documentRange: selection,
+      ),
+    );
+
+    if (newSelectionPosition != null) {
+      executor.executeCommand(
+        ChangeSelectionCommand(
+          DocumentSelection.collapsed(position: newSelectionPosition),
+          SelectionChangeType.deleteContent,
+          SelectionReason.userInteraction,
+        ),
+      );
     }
   }
 }
