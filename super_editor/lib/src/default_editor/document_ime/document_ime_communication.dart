@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -262,6 +264,7 @@ class DocumentImeInputClient extends TextInputConnectionDecorator with TextInput
     editorImeLog.fine("[DocumentImeInputClient] - Serializing and sending document and selection to IME");
     editorImeLog.fine("[DocumentImeInputClient] - Selection: ${textDeltasDocumentEditor.selection.value}");
     editorImeLog.fine("[DocumentImeInputClient] - Composing region: ${textDeltasDocumentEditor.composingRegion.value}");
+
     final imeSerialization = DocumentImeSerializer(
       textDeltasDocumentEditor.document,
       textDeltasDocumentEditor.selection.value!,
@@ -271,6 +274,20 @@ class DocumentImeInputClient extends TextInputConnectionDecorator with TextInput
     editorImeLog
         .fine("[DocumentImeInputClient] - Adding invisible characters?: ${imeSerialization.didPrependPlaceholder}");
     TextEditingValue textEditingValue = imeSerialization.toTextEditingValue();
+
+    // Sanitize values to prevent crashes for Japanese and similar input
+    final maxValue = textEditingValue.text.length;
+    textEditingValue = textEditingValue.copyWith(
+        selection: TextSelection(
+          baseOffset: min(textEditingValue.selection.baseOffset, maxValue),
+          extentOffset: min(textEditingValue.selection.extentOffset, maxValue),
+          affinity: textEditingValue.selection.affinity,
+          isDirectional: textEditingValue.selection.isDirectional,
+        ),
+        composing: TextRange(
+          start: min(textEditingValue.composing.start, maxValue),
+          end: min(textEditingValue.composing.end, maxValue),
+        ));
 
     editorImeLog.fine("[DocumentImeInputClient] - Sending IME serialization:");
     editorImeLog.fine("[DocumentImeInputClient] - $textEditingValue");
