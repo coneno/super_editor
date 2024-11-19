@@ -813,7 +813,7 @@ class IosControlsDocumentLayerState extends DocumentLayoutLayerState<IosHandlesD
   }) {
     return Positioned(
       key: _collapsedHandleKey,
-      left: caret.left,
+      left: caret.left - widget.caretWidth / 2,
       top: caret.top,
       child: MultiListenableBuilder(
         listenables: {
