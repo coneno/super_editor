@@ -1385,8 +1385,10 @@ class SuperEditorIosToolbarOverlayManagerState extends State<SuperEditorIosToolb
     // This needs to be this ugly to hopefully prevent it from crashing due to show being called during build.
     () async {
       await Future.delayed(Duration.zero);
-      _controlsController = SuperEditorIosControlsScope.rootOf(context);
-      _overlayPortalController.show();
+      if (mounted) {
+        _controlsController = SuperEditorIosControlsScope.rootOf(context);
+        _overlayPortalController.show();
+      }
     }.call();
   }
 
@@ -1452,8 +1454,10 @@ class SuperEditorIosMagnifierOverlayManagerState extends State<SuperEditorIosMag
     // This needs to be this ugly to hopefully prevent it from crashing due to show being called during build.
     () async {
       await Future.delayed(Duration.zero);
-      _controlsController = SuperEditorIosControlsScope.rootOf(context);
-      _overlayPortalController.show();
+      if (mounted) {
+        _controlsController = SuperEditorIosControlsScope.rootOf(context);
+        _overlayPortalController.show();
+      }
     }.call();
   }
 
