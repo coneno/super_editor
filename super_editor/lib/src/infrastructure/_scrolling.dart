@@ -43,7 +43,9 @@ class AutoScroller {
 
     editorGesturesLog.finest('Starting to auto-scroll up');
     _scrollUpOnTick = true;
-    _ticker.start();
+    if (!_ticker.isActive) {
+      _ticker.start();
+    }
   }
 
   void _scrollUp() {
@@ -82,7 +84,9 @@ class AutoScroller {
 
     editorGesturesLog.finest('Starting to auto-scroll down');
     _scrollDownOnTick = true;
-    _ticker.start();
+    if (!_ticker.isActive) {
+      _ticker.start();
+    }
   }
 
   void _scrollDown() {
