@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:follow_the_leader/follow_the_leader.dart';
 import 'package:super_editor/src/core/document.dart';
 import 'package:super_editor/src/core/document_composer.dart';
@@ -1381,8 +1382,12 @@ class SuperEditorIosToolbarOverlayManagerState extends State<SuperEditorIosToolb
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    _controlsController = SuperEditorIosControlsScope.rootOf(context);
-    _overlayPortalController.show();
+    // This needs to be this ugly to hopefully prevent it from crashing due to show being called during build.
+    () async {
+      await Future.delayed(Duration.zero);
+      _controlsController = SuperEditorIosControlsScope.rootOf(context);
+      _overlayPortalController.show();
+    }.call();
   }
 
   @visibleForTesting
@@ -1443,8 +1448,13 @@ class SuperEditorIosMagnifierOverlayManagerState extends State<SuperEditorIosMag
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _controlsController = SuperEditorIosControlsScope.rootOf(context);
-    _overlayPortalController.show();
+
+    // This needs to be this ugly to hopefully prevent it from crashing due to show being called during build.
+    () async {
+      await Future.delayed(Duration.zero);
+      _controlsController = SuperEditorIosControlsScope.rootOf(context);
+      _overlayPortalController.show();
+    }.call();
   }
 
   @override
