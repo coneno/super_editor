@@ -106,6 +106,7 @@ class SuperEditor extends StatefulWidget {
     this.autofocus = false,
     this.tapRegionGroupId,
     required this.editor,
+    required this.floatingCursorColor,
     @Deprecated(
         "The document is now retrieved from the Editor. You should remove this property from your SuperEditor widget.")
     this.document,
@@ -352,6 +353,8 @@ class SuperEditor extends StatefulWidget {
   @Deprecated(
       "To configure an overlay clipper, surround SuperEditor with a SuperEditorIosControlsScope and/or a SuperEditorAndroidControlsScope")
   final CustomClipper<Rect> Function(BuildContext overlayContext)? createOverlayControlsClipper;
+
+  final Color floatingCursorColor;
 
   /// Plugins that add sets of behaviors to the editing experience.
   final Set<SuperEditorPlugin> plugins;
@@ -817,6 +820,7 @@ class SuperEditorState extends State<SuperEditor> {
               getDocumentLayout: () => _docLayoutKey.currentState as DocumentLayout,
               selection: widget.editor.composer.selectionNotifier,
               scrollChangeSignal: _scrollChangeSignal,
+              color: widget.floatingCursorColor,
               child: child,
             ),
           ),

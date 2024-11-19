@@ -1541,6 +1541,7 @@ class EditorFloatingCursor extends StatefulWidget {
     required this.getDocumentLayout,
     required this.selection,
     required this.scrollChangeSignal,
+    required this.color,
     required this.child,
   });
 
@@ -1549,6 +1550,7 @@ class EditorFloatingCursor extends StatefulWidget {
   final DocumentLayoutResolver getDocumentLayout;
   final ValueListenable<DocumentSelection?> selection;
   final SignalNotifier scrollChangeSignal;
+  final Color color;
   final Widget child;
 
   @override
@@ -1799,7 +1801,7 @@ class _EditorFloatingCursorState extends State<EditorFloatingCursor> {
           rect: floatingCursorRect,
           child: IgnorePointer(
             child: ColoredBox(
-              color: Colors.red.withOpacity(0.75),
+              color: widget.color,
             ),
           ),
         );
