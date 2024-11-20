@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:follow_the_leader/follow_the_leader.dart';
 import 'package:super_editor/src/core/document.dart';
@@ -944,9 +945,18 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
     _placeFocalPointNearTouchOffset();
   }
 
+  double _getScaleFactor(BuildContext context) {
+    final matrix = context.findRenderObject()?.getTransformTo(null);
+    if (matrix != null) {
+      return matrix.getMaxScaleOnAxis();
+    }
+    return 1.0; // Default scale factor if we can't determine the real factor.
+  }
+
   void _updateSelectionForNewDragHandleLocation() {
-    final docDragDelta = _globalDragOffset! - _globalStartDragOffset!;
-    final dragScrollDelta = _dragStartScrollOffset! - scrollPosition.pixels;
+    final scaleFactor = _getScaleFactor(context);
+    final docDragDelta = (_globalDragOffset! - _globalStartDragOffset!) / scaleFactor;
+    final dragScrollDelta = (_dragStartScrollOffset! - scrollPosition.pixels) / scaleFactor;
     final docDragPosition = _docLayout
         .getDocumentPositionNearestToOffset(_startDragPositionOffset! + docDragDelta - Offset(0, dragScrollDelta));
     if (docDragPosition == null) {
