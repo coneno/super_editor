@@ -919,6 +919,14 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
     return caretRect.contains(docOffset);
   }
 
+  double _getScaleFactor(BuildContext context) {
+    final matrix = context.findRenderObject()?.getTransformTo(null);
+    if (matrix != null) {
+      return matrix.getMaxScaleOnAxis();
+    }
+    return 1.0; // Default scale factor if we can't determine the real factor.
+  }
+
   void _onPanUpdate(DragUpdateDetails details) {
     _globalDragOffset = details.globalPosition;
 
@@ -926,8 +934,9 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
     final dragEndInViewport = _interactorOffsetToViewportOffset(_dragEndInInteractor!);
 
     if (_isLongPressInProgress) {
-      final fingerDragDelta = _globalDragOffset! - _globalStartDragOffset!;
-      final scrollDelta = _dragStartScrollOffset! - scrollPosition.pixels;
+      final scaleFactor = _getScaleFactor(context);
+      final fingerDragDelta = (_globalDragOffset! - _globalStartDragOffset!) / scaleFactor;
+      final scrollDelta = (_dragStartScrollOffset! - scrollPosition.pixels) / scaleFactor;
       final fingerDocumentOffset = _docLayout.getDocumentOffsetFromAncestorOffset(details.globalPosition);
       final fingerDocumentPosition = _docLayout.getDocumentPositionNearestToOffset(
         _startDragPositionOffset! + fingerDragDelta - Offset(0, scrollDelta),
@@ -943,14 +952,6 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
     );
 
     _placeFocalPointNearTouchOffset();
-  }
-
-  double _getScaleFactor(BuildContext context) {
-    final matrix = context.findRenderObject()?.getTransformTo(null);
-    if (matrix != null) {
-      return matrix.getMaxScaleOnAxis();
-    }
-    return 1.0; // Default scale factor if we can't determine the real factor.
   }
 
   void _updateSelectionForNewDragHandleLocation() {
@@ -1206,8 +1207,9 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
       final tapDownDocumentOffset = _interactorOffsetToDocumentOffset(interactorOffset);
       docPositionToMagnify = _docLayout.getDocumentPositionNearestToOffset(tapDownDocumentOffset);
     } else {
-      final docDragDelta = _globalDragOffset! - _globalStartDragOffset!;
-      final dragScrollDelta = _dragStartScrollOffset! - scrollPosition.pixels;
+      final scaleFactor = _getScaleFactor(context);
+      final docDragDelta = (_globalDragOffset! - _globalStartDragOffset!) / scaleFactor;
+      final dragScrollDelta = (_dragStartScrollOffset! - scrollPosition.pixels) / scaleFactor;
       docPositionToMagnify = _docLayout
           .getDocumentPositionNearestToOffset(_startDragPositionOffset! + docDragDelta - Offset(0, dragScrollDelta));
     }
