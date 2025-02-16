@@ -7,6 +7,7 @@ import 'package:mockito/mockito.dart';
 import 'package:super_editor/super_editor.dart';
 import 'package:super_editor/super_editor_test.dart';
 import 'package:super_editor_markdown/super_editor_markdown.dart';
+import 'package:super_keyboard/super_keyboard_test.dart';
 import 'package:text_table/text_table.dart';
 
 import '../test_tools_user_input.dart';
@@ -65,6 +66,13 @@ class TestDocumentSelector {
     return TestSuperEditorConfigurator._(
       _widgetTester,
       singleParagraphDoc(),
+    );
+  }
+
+  TestSuperEditorConfigurator withSingleShortParagraph() {
+    return TestSuperEditorConfigurator._(
+      _widgetTester,
+      singleParagraphDocShortText(),
     );
   }
 
@@ -386,6 +394,13 @@ class TestSuperEditorConfigurator {
     return this;
   }
 
+  /// Configures the [SuperEditor] to use only the given [tapDelegateFactories].
+  TestSuperEditorConfigurator withTapDelegateFactories(
+      List<SuperEditorContentTapDelegateFactory>? tapDelegateFactories) {
+    _config.tapDelegateFactories = tapDelegateFactories;
+    return this;
+  }
+
   /// Applies the given [plugin] to the pumped [SuperEditor].
   TestSuperEditorConfigurator withPlugin(SuperEditorPlugin plugin) {
     _config.plugins.add(plugin);
@@ -643,6 +658,8 @@ class _TestSuperEditorState extends State<_TestSuperEditor> {
       focusNode: widget.testDocumentContext.focusNode,
       autofocus: widget.testConfiguration.autoFocus,
       tapRegionGroupId: widget.testConfiguration.tapRegionGroupId,
+      contentTapDelegateFactories:
+          widget.testConfiguration.tapDelegateFactories ?? [superEditorLaunchLinkTapHandlerFactory],
       editor: widget.testDocumentContext.editor,
       documentLayoutKey: widget.testDocumentContext.layoutKey,
       inputSource: widget.testConfiguration.inputSource,
@@ -666,6 +683,7 @@ class _TestSuperEditorState extends State<_TestSuperEditor> {
       componentBuilders: [
         ...widget.testConfiguration.addedComponents,
         ...(widget.testConfiguration.componentBuilders ?? defaultComponentBuilders),
+        if (widget.testConfiguration.componentBuilders == null) TaskComponentBuilder(widget.testDocumentContext.editor)
       ],
       scrollController: widget.testConfiguration.scrollController,
       documentOverlayBuilders: _createOverlayBuilders(),
@@ -778,6 +796,8 @@ class SuperEditorTestConfiguration {
   DocumentFloatingToolbarBuilder? iOSToolbarBuilder;
 
   DocumentSelection? selection;
+
+  List<SuperEditorContentTapDelegateFactory>? tapDelegateFactories;
 
   final plugins = <SuperEditorPlugin>{};
 

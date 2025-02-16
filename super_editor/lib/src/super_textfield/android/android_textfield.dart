@@ -1,5 +1,8 @@
+import 'package:attributed_text/attributed_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:follow_the_leader/follow_the_leader.dart';
+import 'package:super_editor/src/default_editor/text_tools.dart';
 import 'package:super_editor/src/infrastructure/attributed_text_styles.dart';
 import 'package:super_editor/src/infrastructure/flutter/build_context.dart';
 import 'package:super_editor/src/infrastructure/flutter/flutter_scheduler.dart';
@@ -12,6 +15,7 @@ import 'package:super_editor/src/super_textfield/android/_editing_controls.dart'
 import 'package:super_editor/src/super_textfield/android/_user_interaction.dart';
 import 'package:super_editor/src/super_textfield/infrastructure/fill_width_if_constrained.dart';
 import 'package:super_editor/src/super_textfield/infrastructure/hint_text.dart';
+import 'package:super_editor/src/super_textfield/infrastructure/text_field_gestures_interaction_overrides.dart';
 import 'package:super_editor/src/super_textfield/infrastructure/text_scrollview.dart';
 import 'package:super_editor/src/super_textfield/input_method_engine/_ime_text_editing_controller.dart';
 import 'package:super_text_layout/super_text_layout.dart';
@@ -30,8 +34,9 @@ class SuperAndroidTextField extends StatefulWidget {
     this.focusNode,
     this.tapRegionGroupId,
     this.textController,
-    this.textAlign = TextAlign.left,
+    this.textAlign,
     this.textStyleBuilder = defaultTextFieldStyleBuilder,
+    this.inlineWidgetBuilders = const [],
     this.hintBehavior = HintBehavior.displayHintUntilFocus,
     this.hintBuilder,
     this.minLines,
@@ -44,6 +49,7 @@ class SuperAndroidTextField extends StatefulWidget {
     this.textInputAction,
     this.imeConfiguration,
     this.showComposingUnderline = true,
+    this.tapHandlers = const [],
     this.popoverToolbarBuilder = _defaultAndroidToolbarBuilder,
     this.showDebugPaint = false,
     this.padding,
@@ -60,11 +66,17 @@ class SuperAndroidTextField extends StatefulWidget {
   final ImeAttributedTextEditingController? textController;
 
   /// The alignment to use for text in this text field.
-  final TextAlign textAlign;
+  ///
+  /// If `null`, the text alignment is determined by the text direction
+  /// of the content.
+  final TextAlign? textAlign;
 
   /// Text style factory that creates styles for the content in
   /// [textController] based on the attributions in that content.
   final AttributionStyleBuilder textStyleBuilder;
+
+  /// {@macro super_text_field_inline_widget_builders}
+  final InlineWidgetBuilderChain inlineWidgetBuilders;
 
   /// Policy for when the hint should be displayed.
   final HintBehavior hintBehavior;
@@ -139,6 +151,9 @@ class SuperAndroidTextField extends StatefulWidget {
   /// Whether to show an underline beneath the text in the composing region.
   final bool showComposingUnderline;
 
+  /// {@macro super_text_field_tap_handlers}
+  final List<SuperTextFieldTapHandler> tapHandlers;
+
   /// Whether to paint debug guides.
   final bool showDebugPaint;
 
@@ -169,7 +184,22 @@ class SuperAndroidTextFieldState extends State<SuperAndroidTextField>
 
   late ImeAttributedTextEditingController _textEditingController;
 
-  final _magnifierLayerLink = LayerLink();
+  /// The text direction of the first character in the text.
+  ///
+  /// Used to align and position the caret depending on whether
+  /// the text is RTL or LTR.
+  TextDirection? _contentTextDirection;
+
+  /// The text direction applied to the inner text.
+  TextDirection get _textDirection => _contentTextDirection ?? TextDirection.ltr;
+
+  TextAlign get _textAlign =>
+      widget.textAlign ??
+      ((_textDirection == TextDirection.ltr) //
+          ? TextAlign.left
+          : TextAlign.right);
+
+  final _magnifierLayerLink = LeaderLink();
   late AndroidEditingOverlayController _editingOverlayController;
 
   late TextScrollController _textScrollController;
@@ -210,6 +240,8 @@ class SuperAndroidTextFieldState extends State<SuperAndroidTextField>
       caretBlinkController: _caretBlinkController,
       magnifierFocalPoint: _magnifierLayerLink,
     );
+
+    _contentTextDirection = getParagraphDirection(_textEditingController.text.toPlainText());
 
     WidgetsBinding.instance.addObserver(this);
 
@@ -426,6 +458,10 @@ class SuperAndroidTextFieldState extends State<SuperAndroidTextField>
     if (_textEditingController.selection.isCollapsed) {
       _editingOverlayController.hideToolbar();
     }
+
+    setState(() {
+      _contentTextDirection = getParagraphDirection(_textEditingController.text.toPlainText());
+    });
   }
 
   void _onTextScrollChange() {
@@ -555,6 +591,7 @@ class SuperAndroidTextFieldState extends State<SuperAndroidTextField>
           link: _textFieldLayerLink,
           child: AndroidTextFieldTouchInteractor(
             focusNode: _focusNode,
+            tapHandlers: widget.tapHandlers,
             textKey: _textContentKey,
             getGlobalCaretRect: _getGlobalCaretRect,
             textFieldLayerLink: _textFieldLayerLink,
@@ -569,7 +606,7 @@ class SuperAndroidTextFieldState extends State<SuperAndroidTextField>
               textScrollController: _textScrollController,
               textKey: _textContentKey,
               textEditingController: _textEditingController,
-              textAlign: widget.textAlign,
+              textAlign: _textAlign,
               minLines: widget.minLines,
               maxLines: widget.maxLines,
               lineHeight: widget.lineHeight,
@@ -598,65 +635,69 @@ class SuperAndroidTextFieldState extends State<SuperAndroidTextField>
   }
 
   Widget _buildSelectableText() {
-    final textSpan = _textEditingController.text.text.isNotEmpty
-        ? _textEditingController.text.computeTextSpan(widget.textStyleBuilder)
+    final textSpan = _textEditingController.text.isNotEmpty
+        ? _textEditingController.text.computeInlineSpan(context, widget.textStyleBuilder, widget.inlineWidgetBuilders)
         : TextSpan(text: "", style: widget.textStyleBuilder({}));
 
-    return SuperText(
-      key: _textContentKey,
-      richText: textSpan,
-      textAlign: widget.textAlign,
-      textScaler: MediaQuery.textScalerOf(context),
-      layerBeneathBuilder: (context, textLayout) {
-        final isTextEmpty = _textEditingController.text.text.isEmpty;
-        final showHint = widget.hintBuilder != null &&
-            ((isTextEmpty && widget.hintBehavior == HintBehavior.displayHintUntilTextEntered) ||
-                (isTextEmpty && !_focusNode.hasFocus && widget.hintBehavior == HintBehavior.displayHintUntilFocus));
+    return Directionality(
+      textDirection: _textDirection,
+      child: SuperText(
+        key: _textContentKey,
+        richText: textSpan,
+        textAlign: _textAlign,
+        textDirection: _textDirection,
+        textScaler: MediaQuery.textScalerOf(context),
+        layerBeneathBuilder: (context, textLayout) {
+          final isTextEmpty = _textEditingController.text.isEmpty;
+          final showHint = widget.hintBuilder != null &&
+              ((isTextEmpty && widget.hintBehavior == HintBehavior.displayHintUntilTextEntered) ||
+                  (isTextEmpty && !_focusNode.hasFocus && widget.hintBehavior == HintBehavior.displayHintUntilFocus));
 
-        return Stack(
-          children: [
-            if (widget.textController?.selection.isValid == true)
-              // Selection highlight beneath the text.
-              TextLayoutSelectionHighlight(
-                textLayout: textLayout,
-                style: SelectionHighlightStyle(
-                  color: widget.selectionColor,
-                ),
-                selection: widget.textController?.selection,
-              ),
-            // Underline beneath the composing region.
-            if (widget.textController?.composingRegion.isValid == true && widget.showComposingUnderline)
-              TextUnderlineLayer(
-                textLayout: textLayout,
-                style: StraightUnderlineStyle(
-                  color: widget.textStyleBuilder({}).color ?? //
-                      (Theme.of(context).brightness == Brightness.light ? Colors.black : Colors.white),
-                ),
-                underlines: [
-                  TextLayoutUnderline(
-                    range: widget.textController!.composingRegion,
+          return Stack(
+            children: [
+              if (widget.textController?.selection.isValid == true)
+                // Selection highlight beneath the text.
+                TextLayoutSelectionHighlight(
+                  textLayout: textLayout,
+                  style: SelectionHighlightStyle(
+                    color: widget.selectionColor,
                   ),
-                ],
-              ),
-            if (showHint) //
-              widget.hintBuilder!(context),
-          ],
-        );
-      },
-      layerAboveBuilder: (context, textLayout) {
-        if (!_focusNode.hasFocus) {
-          return const SizedBox();
-        }
+                  selection: widget.textController?.selection,
+                ),
+              // Underline beneath the composing region.
+              if (widget.textController?.composingRegion.isValid == true && widget.showComposingUnderline)
+                TextUnderlineLayer(
+                  textLayout: textLayout,
+                  style: StraightUnderlineStyle(
+                    color: widget.textStyleBuilder({}).color ?? //
+                        (Theme.of(context).brightness == Brightness.light ? Colors.black : Colors.white),
+                  ),
+                  underlines: [
+                    TextLayoutUnderline(
+                      range: widget.textController!.composingRegion,
+                    ),
+                  ],
+                ),
+              if (showHint) //
+                widget.hintBuilder!(context),
+            ],
+          );
+        },
+        layerAboveBuilder: (context, textLayout) {
+          if (!_focusNode.hasFocus) {
+            return const SizedBox();
+          }
 
-        return TextLayoutCaret(
-          textLayout: textLayout,
-          style: widget.caretStyle,
-          position: _textEditingController.selection.isCollapsed //
-              ? _textEditingController.selection.extent
-              : null,
-          blinkController: _caretBlinkController,
-        );
-      },
+          return TextLayoutCaret(
+            textLayout: textLayout,
+            style: widget.caretStyle,
+            position: _textEditingController.selection.isCollapsed //
+                ? _textEditingController.selection.extent
+                : null,
+            blinkController: _caretBlinkController,
+          );
+        },
+      ),
     );
   }
 
@@ -708,7 +749,7 @@ void _onToolbarCutPressed(AndroidEditingOverlayController controller) {
     return;
   }
 
-  final selectedText = selection.textInside(textController.text.text);
+  final selectedText = selection.textInside(textController.text.toPlainText());
 
   textController.deleteSelectedText();
 
@@ -718,7 +759,7 @@ void _onToolbarCutPressed(AndroidEditingOverlayController controller) {
 void _onToolbarCopyPressed(AndroidEditingOverlayController controller) {
   final textController = controller.textController;
   final selection = textController.selection;
-  final selectedText = selection.textInside(textController.text.text);
+  final selectedText = selection.textInside(textController.text.toPlainText());
 
   Clipboard.setData(ClipboardData(text: selectedText));
 }

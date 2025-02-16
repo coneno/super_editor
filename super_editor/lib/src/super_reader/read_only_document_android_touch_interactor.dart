@@ -132,7 +132,7 @@ class _ReadOnlyAndroidDocumentTouchInteractorState extends State<ReadOnlyAndroid
       GroupedOverlayPortalController(displayPriority: OverlayGroupPriority.editingControls);
   final _overlayPortalRebuildSignal = SignalNotifier();
   late AndroidDocumentGestureEditingController _editingController;
-  final _magnifierFocalPointLink = LayerLink();
+  final _magnifierFocalPointLink = LeaderLink();
 
   late DragHandleAutoScroller _handleAutoScrolling;
   Offset? _globalStartDragOffset;
@@ -525,17 +525,24 @@ class _ReadOnlyAndroidDocumentTouchInteractorState extends State<ReadOnlyAndroid
     readerGesturesLog.info("Tap down on document");
     final docOffset = _interactorOffsetToDocOffset(details.localPosition);
     readerGesturesLog.fine(" - document offset: $docOffset");
-    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
-    readerGesturesLog.fine(" - tapped document position: $docPosition");
 
-    if (widget.contentTapHandler != null && docPosition != null) {
-      final result = widget.contentTapHandler!.onTap(docPosition);
+    if (widget.contentTapHandler != null) {
+      final result = widget.contentTapHandler!.onTap(
+        DocumentTapDetails(
+          documentLayout: _docLayout,
+          layoutOffset: docOffset,
+          globalOffset: details.globalPosition,
+        ),
+      );
       if (result == TapHandlingInstruction.halt) {
         // The custom tap handler doesn't want us to react at all
         // to the tap.
         return;
       }
     }
+
+    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
+    readerGesturesLog.fine(" - tapped document position: $docPosition");
 
     if (docPosition == null) {
       widget.selection.value = null;
@@ -565,11 +572,15 @@ class _ReadOnlyAndroidDocumentTouchInteractorState extends State<ReadOnlyAndroid
     readerGesturesLog.info("Double tap down on document");
     final docOffset = _interactorOffsetToDocOffset(details.localPosition);
     readerGesturesLog.fine(" - document offset: $docOffset");
-    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
-    readerGesturesLog.fine(" - tapped document position: $docPosition");
 
-    if (docPosition != null && widget.contentTapHandler != null) {
-      final result = widget.contentTapHandler!.onDoubleTap(docPosition);
+    if (widget.contentTapHandler != null) {
+      final result = widget.contentTapHandler!.onDoubleTap(
+        DocumentTapDetails(
+          documentLayout: _docLayout,
+          layoutOffset: docOffset,
+          globalOffset: details.globalPosition,
+        ),
+      );
       if (result == TapHandlingInstruction.halt) {
         // The custom tap handler doesn't want us to react at all
         // to the tap.
@@ -579,6 +590,8 @@ class _ReadOnlyAndroidDocumentTouchInteractorState extends State<ReadOnlyAndroid
 
     widget.selection.value = null;
 
+    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
+    readerGesturesLog.fine(" - tapped document position: $docPosition");
     if (docPosition != null) {
       // The user tapped a non-selectable component, so we can't select a word.
       // The editor will remain focused and selection will remain in the nearest
@@ -613,11 +626,15 @@ class _ReadOnlyAndroidDocumentTouchInteractorState extends State<ReadOnlyAndroid
     readerGesturesLog.info("Triple down down on document");
     final docOffset = _interactorOffsetToDocOffset(details.localPosition);
     readerGesturesLog.fine(" - document offset: $docOffset");
-    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
-    readerGesturesLog.fine(" - tapped document position: $docPosition");
 
-    if (docPosition != null && widget.contentTapHandler != null) {
-      final result = widget.contentTapHandler!.onTripleTap(docPosition);
+    if (widget.contentTapHandler != null) {
+      final result = widget.contentTapHandler!.onTripleTap(
+        DocumentTapDetails(
+          documentLayout: _docLayout,
+          layoutOffset: docOffset,
+          globalOffset: details.globalPosition,
+        ),
+      );
       if (result == TapHandlingInstruction.halt) {
         // The custom tap handler doesn't want us to react at all
         // to the tap.
@@ -626,7 +643,8 @@ class _ReadOnlyAndroidDocumentTouchInteractorState extends State<ReadOnlyAndroid
     }
 
     widget.selection.value = null;
-
+    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
+    readerGesturesLog.fine(" - tapped document position: $docPosition");
     if (docPosition != null) {
       // The user tapped a non-selectable component, so we can't select a paragraph.
       // The editor will remain focused and selection will remain in the nearest
@@ -1296,7 +1314,7 @@ class _AndroidDocumentTouchEditingControlsState extends State<AndroidDocumentTou
                       child: Container(
                         width: double.infinity,
                         height: double.infinity,
-                        color: Colors.yellow.withOpacity(0.2),
+                        color: Colors.yellow.withValues(alpha: 0.2),
                       ),
                     ),
                 ],
@@ -1460,7 +1478,7 @@ class _AndroidDocumentTouchEditingControlsState extends State<AndroidDocumentTou
       left: magnifierOffset.dx,
       // TODO: select focal position based on type of content
       top: magnifierOffset.dy,
-      child: CompositedTransformTarget(
+      child: Leader(
         link: widget.editingController.magnifierFocalPointLink,
         child: const SizedBox(width: 1, height: 1),
       ),
@@ -1472,11 +1490,9 @@ class _AndroidDocumentTouchEditingControlsState extends State<AndroidDocumentTou
     //
     // When the user is dragging an overlay handle, we place a LayerLink
     // target. This magnifier follows that target.
-    return Center(
-      child: AndroidFollowingMagnifier(
-        layerLink: widget.editingController.magnifierFocalPointLink,
-        offsetFromFocalPoint: const Offset(0, -72),
-      ),
+    return AndroidFollowingMagnifier(
+      layerLink: widget.editingController.magnifierFocalPointLink,
+      offsetFromFocalPoint: Offset(0, -54 * MediaQuery.devicePixelRatioOf(context)),
     );
   }
 

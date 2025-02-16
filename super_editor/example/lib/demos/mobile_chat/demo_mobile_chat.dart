@@ -1,5 +1,8 @@
+import 'package:example/demos/mobile_chat/giphy_keyboard_panel.dart';
 import 'package:flutter/material.dart';
+import 'package:logging/logging.dart';
 import 'package:super_editor/super_editor.dart';
+import 'package:super_keyboard/super_keyboard.dart';
 
 /// A UI with a chat message editor at the bottom, and a fake chat conversation
 /// behind it.
@@ -32,16 +35,17 @@ class _MobileChatDemoState extends State<MobileChatDemo> {
   final FocusNode _editorFocusNode = FocusNode();
   late final Editor _editor;
 
-  late final KeyboardPanelController _keyboardPanelController;
+  late final KeyboardPanelController<_Panel> _keyboardPanelController;
   final SoftwareKeyboardController _softwareKeyboardController = SoftwareKeyboardController();
 
   final _imeConnectionNotifier = ValueNotifier<bool>(false);
 
-  _Panel? _visiblePanel;
-
   @override
   void initState() {
     super.initState();
+
+    SuperKeyboard.initLogs();
+    initLoggers(Level.ALL, {keyboardPanelLog});
 
     final document = MutableDocument.empty();
     final composer = MutableDocumentComposer();
@@ -63,21 +67,44 @@ class _MobileChatDemoState extends State<MobileChatDemo> {
     super.dispose();
   }
 
+  void _openPanelFromAppBar() {
+    // This action is here to verify that we can open keyboard panels
+    // before opening the keyboard.
+
+    // Focus the editor and place the caret.
+    _editorFocusNode.requestFocus();
+    final document = _editor.context.document;
+    _editor.execute([
+      ChangeSelectionRequest(
+        DocumentSelection.collapsed(
+          position: DocumentPosition(
+            nodeId: document.last.id,
+            nodePosition: document.last.endPosition,
+          ),
+        ),
+        SelectionChangeType.placeCaret,
+        SelectionReason.userInteraction,
+      ),
+    ]);
+
+    // Open a panel.
+    _keyboardPanelController.showKeyboardPanel(_Panel.panel1);
+  }
+
   void _togglePanel(_Panel panel) {
-    setState(() {
-      if (_visiblePanel == panel) {
-        _visiblePanel = null;
-        _keyboardPanelController.showSoftwareKeyboard();
-      } else {
-        _visiblePanel = panel;
-        _keyboardPanelController.showKeyboardPanel();
-      }
-    });
+    if (_keyboardPanelController.openPanel == panel) {
+      _keyboardPanelController.showSoftwareKeyboard();
+    } else {
+      _keyboardPanelController.showKeyboardPanel(panel);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return KeyboardScaffoldSafeArea(
+    return KeyboardScaffoldSafeAreaScope(
+      // ^ Share keyboard inset info throughout all subtrees. The insets will
+      //   be reported by the subtree with the editor. Those insets might then
+      //   be used by the subtree with page content, etc.
       child: DefaultTabController(
         length: 2,
         child: Scaffold(
@@ -94,6 +121,18 @@ class _MobileChatDemoState extends State<MobileChatDemo> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
+      actions: [
+        IconButton(
+          icon: Icon(Icons.open_in_new),
+          onPressed: _openPanelFromAppBar,
+        ),
+        IconButton(
+          icon: Icon(Icons.settings),
+          onPressed: () {
+            Navigator.of(context).pushNamed("/second");
+          },
+        ),
+      ],
       bottom: const TabBar(
         tabs: [
           Tab(icon: Icon(Icons.chat)),
@@ -104,68 +143,82 @@ class _MobileChatDemoState extends State<MobileChatDemo> {
   }
 
   Widget _buildChatPage() {
-    return Stack(
+    return Column(
       children: [
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: () {
-              _screenFocusNode.requestFocus();
-            },
-            child: Focus(
-              focusNode: _screenFocusNode,
-              child: ColoredBox(
-                color: Colors.white,
-                child: KeyboardScaffoldSafeArea(
-                  child: ListView.builder(
-                    // TODO: we need a solution to ensure this chat list has bottom
-                    //       padding large enough to account for the (dynamic) height
-                    //       of the editor.
-                    itemCount: 10,
-                    itemBuilder: (context, index) {
-                      return Container(
-                        height: 150,
-                        margin: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.grey.shade200),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 16,
-                              offset: Offset(0, 8),
-                            ),
-                          ],
+        Expanded(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () {
+                    _screenFocusNode.requestFocus();
+                    _keyboardPanelController.closeKeyboardAndPanel();
+                  },
+                  child: Focus(
+                    focusNode: _screenFocusNode,
+                    child: ColoredBox(
+                      color: Colors.white,
+                      child: KeyboardScaffoldSafeArea(
+                        child: ListView.builder(
+                          // TODO: we need a solution to ensure this chat list has bottom
+                          //       padding large enough to account for the (dynamic) height
+                          //       of the editor.
+                          itemCount: 10,
+                          itemBuilder: (context, index) {
+                            return Container(
+                              height: 150,
+                              margin: EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade200),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 16,
+                                    offset: Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: KeyboardScaffoldSafeArea(
+                  child: _buildCommentEditor(),
+                ),
+              ),
+            ],
           ),
         ),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _buildCommentEditor(),
-        ),
+        // We build a small status area to ensure that things work correctly
+        // when the chat editor isn't at the absolute bottom of the screen.
+        // Our earlier bottom inset logic didn't account for this, and broke
+        // in a client app, where that app had persistent bottom tabs.
+        _buildChatStatus(context),
       ],
     );
   }
 
   Widget _buildCommentEditor() {
     return Opacity(
-      opacity: 0.75,
-      // ^ opacity is for testing, so we can see the chat behind it.
-      child: KeyboardPanelScaffold(
+      // Opacity is here so we can easily check what's behind it.
+      opacity: 1.0,
+      child: KeyboardPanelScaffold<_Panel>(
         controller: _keyboardPanelController,
         isImeConnected: _imeConnectionNotifier,
         toolbarBuilder: _buildKeyboardToolbar,
         fallbackPanelHeight: MediaQuery.sizeOf(context).height / 3,
-        keyboardPanelBuilder: (context) {
-          switch (_visiblePanel) {
+        keyboardPanelBuilder: (context, panel) {
+          switch (panel) {
             case _Panel.panel1:
               return Container(
                 color: Colors.blue,
@@ -175,6 +228,10 @@ class _MobileChatDemoState extends State<MobileChatDemo> {
               return Container(
                 color: Colors.red,
                 height: double.infinity,
+              );
+            case _Panel.giphy:
+              return GiphyKeyboardPanel(
+                editor: _editor,
               );
             default:
               return const SizedBox();
@@ -197,7 +254,7 @@ class _MobileChatDemoState extends State<MobileChatDemo> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.075),
+                    color: Colors.black.withValues(alpha: 0.075),
                     blurRadius: 8,
                     spreadRadius: 4,
                   ),
@@ -209,7 +266,7 @@ class _MobileChatDemoState extends State<MobileChatDemo> {
                 slivers: [
                   SliverPadding(
                     padding: EdgeInsets.only(
-                      bottom: KeyboardScaffoldSafeArea.of(context).geometry.bottomPadding,
+                      bottom: KeyboardScaffoldSafeAreaScope.of(context).geometry.bottomPadding,
                       // ^ Push the editor up above the OS bottom notch.
                     ),
                     sliver: SuperEditor(
@@ -219,10 +276,20 @@ class _MobileChatDemoState extends State<MobileChatDemo> {
                       shrinkWrap: true,
                       stylesheet: _chatStylesheet,
                       selectionPolicies: const SuperEditorSelectionPolicies(
+                        openKeyboardWhenTappingExistingSelection: false,
                         clearSelectionWhenEditorLosesFocus: true,
                         clearSelectionWhenImeConnectionCloses: false,
                       ),
+                      imePolicies: SuperEditorImePolicies(
+                        openKeyboardOnGainPrimaryFocus: false,
+                        openKeyboardOnSelectionChange: false,
+                        closeKeyboardOnSelectionLost: false,
+                      ),
                       isImeConnected: _imeConnectionNotifier,
+                      contentTapDelegateFactories: [
+                        superEditorLaunchLinkTapHandlerFactory,
+                        _tapToFocusEditor,
+                      ],
                     ),
                   ),
                 ],
@@ -234,11 +301,14 @@ class _MobileChatDemoState extends State<MobileChatDemo> {
     );
   }
 
-  Widget _buildKeyboardToolbar(BuildContext context, bool isKeyboardPanelVisible) {
-    if (!isKeyboardPanelVisible) {
-      _visiblePanel = null;
-    }
+  ContentTapDelegate _tapToFocusEditor(SuperEditorContext editContext) {
+    return _TapToFocusEditor(
+      _editorFocusNode,
+      _keyboardPanelController,
+    );
+  }
 
+  Widget _buildKeyboardToolbar(BuildContext context, _Panel? openPanel) {
     return Row(
       children: [
         Expanded(
@@ -253,13 +323,13 @@ class _MobileChatDemoState extends State<MobileChatDemo> {
                 const Spacer(),
                 _PanelButton(
                   icon: Icons.text_fields,
-                  isActive: _visiblePanel == _Panel.panel1,
+                  isActive: _keyboardPanelController.openPanel == _Panel.panel1,
                   onPressed: () => _togglePanel(_Panel.panel1),
                 ),
                 const SizedBox(width: 16),
                 _PanelButton(
                   icon: Icons.align_horizontal_left,
-                  isActive: _visiblePanel == _Panel.panel2,
+                  isActive: _keyboardPanelController.openPanel == _Panel.panel2,
                   onPressed: () => _togglePanel(_Panel.panel2),
                 ),
                 const SizedBox(width: 16),
@@ -267,9 +337,20 @@ class _MobileChatDemoState extends State<MobileChatDemo> {
                   icon: Icons.account_circle,
                   onPressed: () => _showBottomSheetWithOptions(context),
                 ),
+                const SizedBox(width: 16),
+                _PanelButton(
+                  icon: Icons.gif_box_outlined,
+                  onPressed: () => _togglePanel(_Panel.giphy),
+                ),
                 const Spacer(),
                 GestureDetector(
-                  onTap: _keyboardPanelController.closeKeyboardAndPanel,
+                  onTap: () {
+                    _keyboardPanelController.closeKeyboardAndPanel();
+
+                    // We need to explicitly unfocus so that the caret doesn't
+                    // keep blinking in the editor.
+                    _editorFocusNode.unfocus();
+                  },
                   child: Icon(Icons.keyboard_hide),
                 ),
                 const SizedBox(width: 24),
@@ -278,6 +359,32 @@ class _MobileChatDemoState extends State<MobileChatDemo> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildChatStatus(BuildContext context) {
+    return DefaultTextStyle(
+      style: DefaultTextStyle.of(context).style.copyWith(
+            color: Colors.white.withValues(alpha: 0.5),
+          ),
+      child: Container(
+        width: double.infinity,
+        color: const Color(0xFF222222),
+        child: SafeArea(
+          top: false,
+          left: false,
+          right: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            child: Text(
+              "There are 3 people online in this chat.",
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -291,9 +398,32 @@ class _MobileChatDemoState extends State<MobileChatDemo> {
   }
 }
 
+class _TapToFocusEditor extends ContentTapDelegate {
+  _TapToFocusEditor(
+    this.editorFocusNode,
+    this.keyboardPanelController,
+  );
+
+  final FocusNode editorFocusNode;
+  final KeyboardPanelController keyboardPanelController;
+
+  @override
+  TapHandlingInstruction onTap(DocumentTapDetails details) {
+    if (!keyboardPanelController.isSoftwareKeyboardOpen && !keyboardPanelController.isKeyboardPanelOpen) {
+      // The user tapped on the editor and the software keyboard isn't up, nor is a panel.
+      // Open the software keyboard.
+      editorFocusNode.requestFocus();
+      keyboardPanelController.showSoftwareKeyboard();
+    }
+
+    return TapHandlingInstruction.continueHandling;
+  }
+}
+
 enum _Panel {
   panel1,
-  panel2;
+  panel2,
+  giphy;
 }
 
 class _PanelButton extends StatelessWidget {
@@ -325,37 +455,47 @@ class _PanelButton extends StatelessWidget {
   }
 }
 
-final _chatStylesheet = defaultStylesheet.copyWith(
-  addRulesBefore: [
-    StyleRule(
-      BlockSelector.all,
-      (doc, docNode) {
-        return {
-          Styles.maxWidth: double.infinity,
-          Styles.padding: const CascadingPadding.symmetric(horizontal: 24),
-        };
-      },
-    ),
-  ],
-  addRulesAfter: [
-    StyleRule(
-      BlockSelector.all.first(),
-      (doc, docNode) {
-        return {
-          Styles.padding: const CascadingPadding.only(top: 12),
-        };
-      },
-    ),
-    StyleRule(
-      BlockSelector.all.last(),
-      (doc, docNode) {
-        return {
-          Styles.padding: const CascadingPadding.only(bottom: 12),
-        };
-      },
-    ),
-  ],
-);
+Stylesheet get _chatStylesheet => defaultStylesheet.copyWith(
+      addRulesBefore: [
+        StyleRule(
+          BlockSelector.all,
+          (doc, docNode) {
+            return {
+              Styles.maxWidth: double.infinity,
+              Styles.padding: const CascadingPadding.symmetric(horizontal: 24),
+            };
+          },
+        ),
+      ],
+      addRulesAfter: [
+        StyleRule(
+          BlockSelector.all,
+          (doc, docNode) {
+            return {
+              Styles.textStyle: TextStyle(
+                fontSize: 18,
+              ),
+            };
+          },
+        ),
+        StyleRule(
+          BlockSelector.all.first(),
+          (doc, docNode) {
+            return {
+              Styles.padding: const CascadingPadding.only(top: 12),
+            };
+          },
+        ),
+        StyleRule(
+          BlockSelector.all.last(),
+          (doc, docNode) {
+            return {
+              Styles.padding: const CascadingPadding.only(bottom: 12),
+            };
+          },
+        ),
+      ],
+    );
 
 Future<void> _showBottomSheetWithOptions(BuildContext context) async {
   return showModalBottomSheet(

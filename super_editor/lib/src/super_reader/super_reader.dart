@@ -20,6 +20,7 @@ import 'package:super_editor/src/default_editor/layout_single_column/_styler_shy
 import 'package:super_editor/src/default_editor/layout_single_column/_styler_user_selection.dart';
 import 'package:super_editor/src/default_editor/list_items.dart';
 import 'package:super_editor/src/default_editor/paragraph.dart';
+import 'package:super_editor/src/default_editor/tasks.dart';
 import 'package:super_editor/src/default_editor/text.dart';
 import 'package:super_editor/src/default_editor/unknown_component.dart';
 import 'package:super_editor/src/infrastructure/_logging.dart';
@@ -34,6 +35,7 @@ import 'package:super_editor/src/infrastructure/links.dart';
 import 'package:super_editor/src/infrastructure/platforms/ios/ios_document_controls.dart';
 import 'package:super_editor/src/infrastructure/platforms/ios/toolbar.dart';
 import 'package:super_editor/src/infrastructure/platforms/platform.dart';
+import 'package:super_editor/src/super_reader/tasks.dart';
 
 import '../infrastructure/platforms/mobile_documents.dart';
 import '../infrastructure/text_input.dart';
@@ -694,7 +696,12 @@ class SuperReaderLaunchLinkTapHandler extends ContentTapDelegate {
   }
 
   @override
-  TapHandlingInstruction onTap(DocumentPosition tapPosition) {
+  TapHandlingInstruction onTap(DocumentTapDetails details) {
+    final tapPosition = details.documentLayout.getDocumentPositionNearestToOffset(details.layoutOffset);
+    if (tapPosition == null) {
+      return TapHandlingInstruction.continueHandling;
+    }
+
     final link = _getLinkAtPosition(tapPosition);
     if (link != null) {
       // The user tapped on a link. Launch it.
@@ -722,7 +729,7 @@ class SuperReaderLaunchLinkTapHandler extends ContentTapDelegate {
     final tappedAttributions = textNode.text.getAllAttributionsAt(nodePosition.offset);
     for (final tappedAttribution in tappedAttributions) {
       if (tappedAttribution is LinkAttribution) {
-        return tappedAttribution.uri;
+        return tappedAttribution.launchableUri;
       }
     }
 
@@ -740,6 +747,7 @@ final readOnlyDefaultComponentBuilders = <ComponentBuilder>[
   const ListItemComponentBuilder(),
   const ImageComponentBuilder(),
   const HorizontalRuleComponentBuilder(),
+  const ReadOnlyTaskComponentBuilder(),
 ];
 
 /// Stylesheet applied to all [SuperReader]s by default.
@@ -861,6 +869,7 @@ final readOnlyDefaultStylesheet = Stylesheet(
     ),
   ],
   inlineTextStyler: readOnlyDefaultInlineTextStyler,
+  inlineWidgetBuilders: defaultInlineWidgetBuilderChain,
 );
 
 TextStyle readOnlyDefaultInlineTextStyler(Set<Attribution> attributions, TextStyle existingStyle) {

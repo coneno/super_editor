@@ -26,16 +26,18 @@ class _SuperEditorSpellcheckPluginAppState extends State<_SuperEditorSpellcheckP
       theme: ThemeData(
         brightness: _brightness,
       ),
-      home: Stack(
-        children: [
-          const _SuperEditorSpellcheckScreen(),
-          Positioned(
-            top: 0,
-            bottom: 0,
-            right: 0,
-            child: _buildToolbar(),
-          ),
-        ],
+      home: SafeArea(
+        child: Stack(
+          children: [
+            const _SuperEditorSpellcheckScreen(),
+            Positioned(
+              top: 0,
+              bottom: 0,
+              right: 0,
+              child: _buildToolbar(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -65,18 +67,43 @@ class _SuperEditorSpellcheckScreen extends StatefulWidget {
 
 class _SuperEditorSpellcheckScreenState extends State<_SuperEditorSpellcheckScreen> {
   late final Editor _editor;
-  final _spellingAndGrammarPlugin = SpellingAndGrammarPlugin();
+  late final SpellingAndGrammarPlugin _spellingAndGrammarPlugin;
+
+  late final SuperEditorIosControlsController _iosControlsController;
+  late final SuperEditorAndroidControlsController _androidControlsController;
 
   @override
   void initState() {
     super.initState();
 
+    _iosControlsController = SuperEditorIosControlsController();
+    _androidControlsController = SuperEditorAndroidControlsController();
+
+    _spellingAndGrammarPlugin = SpellingAndGrammarPlugin(
+      iosControlsController: _iosControlsController,
+      androidControlsController: _androidControlsController,
+    );
+
     _editor = createDefaultDocumentEditor(
-      document: MutableDocument.empty(),
+      document: MutableDocument(
+        // Start the document with some misspelled content to ensure pre-existing
+        // content is analyzed and styled.
+        nodes: [
+          ParagraphNode(id: "1", text: AttributedText("Tihs is mipelled")),
+          ParagraphNode(id: "2", text: AttributedText()),
+        ],
+      ),
       composer: MutableDocumentComposer(),
     );
 
     _insertMisspelledText();
+  }
+
+  @override
+  void dispose() {
+    _iosControlsController.dispose();
+    _androidControlsController.dispose();
+    super.dispose();
   }
 
   void _insertMisspelledText() {
@@ -84,8 +111,8 @@ class _SuperEditorSpellcheckScreenState extends State<_SuperEditorSpellcheckScre
       _editor.execute([
         InsertTextRequest(
           documentPosition: DocumentPosition(
-            nodeId: _editor.context.document.first.id,
-            nodePosition: _editor.context.document.first.beginningPosition,
+            nodeId: _editor.context.document.last.id,
+            nodePosition: _editor.context.document.last.beginningPosition,
           ),
           textToInsert:
               'Flutter is a populr framework developd by Google for buildng natively compilid applications for mobil, web, and desktop from a single code base. Its hot reload featur allows developers to see the changes they make in real-time without havng to restart the app, which can greatly sped up the development proccess. With a rich set of widgets and a customizble UI, Flutter makes it easy to creat beautiful and performant apps quickly.',
@@ -98,19 +125,23 @@ class _SuperEditorSpellcheckScreenState extends State<_SuperEditorSpellcheckScre
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SuperEditor(
-        editor: _editor,
-        customStylePhases: [
-          _spellingAndGrammarPlugin.styler,
-        ],
-        stylesheet: defaultStylesheet.copyWith(
-          addRulesAfter: [
-            if (Theme.of(context).brightness == Brightness.dark) ..._darkModeStyles,
-          ],
+      body: SuperEditorAndroidControlsScope(
+        controller: _androidControlsController,
+        child: SuperEditorIosControlsScope(
+          controller: _iosControlsController,
+          child: SuperEditor(
+            autofocus: true,
+            editor: _editor,
+            stylesheet: defaultStylesheet.copyWith(
+              addRulesAfter: [
+                if (Theme.of(context).brightness == Brightness.dark) ..._darkModeStyles,
+              ],
+            ),
+            plugins: {
+              _spellingAndGrammarPlugin,
+            },
+          ),
         ),
-        plugins: {
-          _spellingAndGrammarPlugin,
-        },
       ),
     );
   }

@@ -1,13 +1,27 @@
+## [0.4.3] - Jan, 2024
+ * [FIX] - Accessing individual characters in `AttributedText` no longer tries to access indices
+           out of bounds.
+
+## [0.4.2] - Jan, 2024
+ * [FIX] - A few `AttributedText` methods weren't updated to account for full length with placeholders.
+
+## [0.4.1] - Jan, 2024
+ * [ADJUSTMENT] - Added a few queries for the character or the placeholder at a given text offset.
+
+## [0.4.0] - Dec, 2024
+ * [FEATURE] - Added support for placeholders in text, e.g., to render inline widgets.
+ * [ADJUSTMENT] - Upgrade `logging` to `v1.3.0`.
+
 ## [0.3.3] - Aug, 2024
  * Package metadata update - no functional changes.
 
 ## [0.3.2] - June, 2024
- * Fix crash when adding attributions that overlap others - you can now control whether a new attribution overwrites conflicting spans when you add it.
+ * [FIX] - Crash when adding attributions that overlap others - you can now control whether a new attribution overwrites conflicting spans when you add it.
 
 ## [0.3.1] - June, 2024
- * Added query `getAllAttributionsThroughout()` to `AttributedText`.
- * Added `copy()` to `AttributedText()`.
- * Added ability to insert an attribution that splits an existing attribution.
+ * [FEATURE] - Added query `getAllAttributionsThroughout()` to `AttributedText`.
+ * [FEATURE] - Added `copy()` to `AttributedText()`.
+ * [ADJUSTMENT] - Added ability to insert an attribution that splits an existing attribution.
 
 ## [0.3.0] - Feb, 2024
  * [BREAKING] - `AttributedText` and `SpanRange` constructors now use positional parameters istead of named parameters.

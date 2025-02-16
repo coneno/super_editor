@@ -1,3 +1,58 @@
+## [0.3.0-dev.18] - Jan 30, 2024
+ * ADJUSTMENT: Upgrade to `attributed_text` `v0.4.3` (with fixes to per-character lookup).
+
+## [0.3.0-dev.17] - Jan 28, 2024
+ * FEATURE: Inline widgets for `SuperTextField`.
+ * FIX: `SuperEditor`: Selecting text with inline widgets and toggling styles deleted the inline widgets.
+ * FIX: Caret place wrong with RTL languages.
+ * FIX: Crash when selecting in an empty paragraph with a selection color strategy.
+ * FIX: Backspace to un-indent on Web.
+ * ADJUSTMENT: Tasks are rendered by default in `SuperReader`.
+
+## [0.3.0-dev.16] - Jan 24, 2024
+ * FIX: `KeyboardScaffoldSafeArea` in rare circumstances was trying to use `NaN` for bottom insets.
+ * FIX: On Safari/Firefox, double tapping on text closing the IME connection.
+
+## [0.3.0-dev.15] - Jan 17, 2024
+ * FEATURE: Spellcheck for mobile (when using the `super_editor_spellcheck` plugin).
+ * ADJUSTMENT: Upgrade to `attributed_text` `v0.4.2` (with some fixes to inline placeholders).
+
+## [0.3.0-dev.14] - Jan 14, 2024
+ * FIX: `KeyboardScaffoldSafeArea` breaks and defers to `MediaQuery` when there's only one in the tree.
+
+## [0.3.0-dev.13] - Jan 10, 2024
+ * BREAKING: All `DocumentNode`s are now immutable. To change a node, it must be copied and replaced.
+ * BREAKING: Newline insertion behavior is now configurable.
+   * All newlines are inserted with explicit `EditRequest`s, e.g., `InsertNewlineRequest`, `InsertSoftNewlineRequest`.
+   * The signature for mapping from `EditRequest` to `EditCommand` was adjusted.
+   * Some `EditRequest`s no longer support `const` construction.
+ * FIX: Make `KeyboardScaffoldSafeArea` work when not positioned at bottom of screen.
+ * FIX: Crash in tags plugin related to selection.
+ * FIX: Selection highlight issue with `SuperTextField`.
+ * FIX: Magnifier doesn't move offscreen.
+ * ADJUSTMENT: Email links launch with a "mailto:" scheme, and app links are linkified.
+ * ADJUSTMENT: Apps can override tap gestures.
+ * ADJUSTMENT: iOS tap word snapping is less aggressive.
+ * ADJUSTMENT: Upgraded `attributed_text` dependency to `v0.4.1`.
+
+## [0.3.0-dev.12] - Dec 23, 2024
+ * FEATURE: Added support for inline widgets.
+ * FEATURE: Created a `ClearDocumentRequest`, which deletes all content and moves caret to the start.
+ * FIX: Web - option + arrow selection changes.
+ * FIX: `SuperTextField` (iOS) - native content menu focal point was wrong.
+ * FIX: Action tag not identified and triggered in expected situations.
+ * ADJUSTMENT: `KeyboardPanelScaffold` supports opening a panel before opening the software keyboard.
+ * ADJUSTMENT: `getDocumentPositionAfterExpandedDeletion` returns `null` for collapsed selections.
+ * ADJUSTMENT: `TaskNode` checkbox sets visual density based on `ThemeData.visualDensity`.
+
+## [0.3.0-dev.11] - Nov 26, 2024
+ * FEATURE: Add an (optional) tap handler that automatically inserts empty paragraph
+   when user taps at the end of the document.
+ * FIX: `KeyboardScaffoldSafeArea` now initializes its insets in a way that works with
+   certain navigation use-cases that previously thought the keyboard was up when it's down.
+ * FIX: Honor the Android handle builders in the Android controls controller.
+ * ADJUSTMENT: Upgraded versions for a number of dependencies.
+
 ## [0.3.0-dev.10] - Nov 18, 2024
  * FEATURE: Created `KeyboardPanelScaffold` and `KeyboardScaffoldSafeArea` to aid with
    implementing mobile phone messaging and chat experiences.

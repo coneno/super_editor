@@ -500,11 +500,15 @@ class _SuperReaderIosDocumentTouchInteractorState extends State<SuperReaderIosDo
     readerGesturesLog.info("Tap down on document");
     final docOffset = _interactorOffsetToDocumentOffset(details.localPosition);
     readerGesturesLog.fine(" - document offset: $docOffset");
-    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
-    readerGesturesLog.fine(" - tapped document position: $docPosition");
 
-    if (widget.contentTapHandler != null && docPosition != null) {
-      final result = widget.contentTapHandler!.onTap(docPosition);
+    if (widget.contentTapHandler != null) {
+      final result = widget.contentTapHandler!.onTap(
+        DocumentTapDetails(
+          documentLayout: _docLayout,
+          layoutOffset: docOffset,
+          globalOffset: details.globalPosition,
+        ),
+      );
       if (result == TapHandlingInstruction.halt) {
         // The custom tap handler doesn't want us to react at all
         // to the tap.
@@ -512,6 +516,8 @@ class _SuperReaderIosDocumentTouchInteractorState extends State<SuperReaderIosDo
       }
     }
 
+    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
+    readerGesturesLog.fine(" - tapped document position: $docPosition");
     if (docPosition != null &&
         selection != null &&
         !selection.isCollapsed &&
@@ -538,11 +544,15 @@ class _SuperReaderIosDocumentTouchInteractorState extends State<SuperReaderIosDo
     readerGesturesLog.info("Double tap down on document");
     final docOffset = _interactorOffsetToDocumentOffset(details.localPosition);
     readerGesturesLog.fine(" - document offset: $docOffset");
-    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
-    readerGesturesLog.fine(" - tapped document position: $docPosition");
 
-    if (docPosition != null && widget.contentTapHandler != null) {
-      final result = widget.contentTapHandler!.onDoubleTap(docPosition);
+    if (widget.contentTapHandler != null) {
+      final result = widget.contentTapHandler!.onDoubleTap(
+        DocumentTapDetails(
+          documentLayout: _docLayout,
+          layoutOffset: docOffset,
+          globalOffset: details.globalPosition,
+        ),
+      );
       if (result == TapHandlingInstruction.halt) {
         // The custom tap handler doesn't want us to react at all
         // to the tap.
@@ -552,6 +562,8 @@ class _SuperReaderIosDocumentTouchInteractorState extends State<SuperReaderIosDo
 
     widget.selection.value = null;
 
+    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
+    readerGesturesLog.fine(" - tapped document position: $docPosition");
     if (docPosition != null) {
       final tappedComponent = _docLayout.getComponentByNodeId(docPosition.nodeId)!;
       if (!tappedComponent.isVisualSelectionSupported()) {
@@ -586,11 +598,15 @@ class _SuperReaderIosDocumentTouchInteractorState extends State<SuperReaderIosDo
 
     final docOffset = _interactorOffsetToDocumentOffset(details.localPosition);
     readerGesturesLog.fine(" - document offset: $docOffset");
-    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
-    readerGesturesLog.fine(" - tapped document position: $docPosition");
 
-    if (docPosition != null && widget.contentTapHandler != null) {
-      final result = widget.contentTapHandler!.onTripleTap(docPosition);
+    if (widget.contentTapHandler != null) {
+      final result = widget.contentTapHandler!.onTripleTap(
+        DocumentTapDetails(
+          documentLayout: _docLayout,
+          layoutOffset: docOffset,
+          globalOffset: details.globalPosition,
+        ),
+      );
       if (result == TapHandlingInstruction.halt) {
         // The custom tap handler doesn't want us to react at all
         // to the tap.
@@ -600,6 +616,8 @@ class _SuperReaderIosDocumentTouchInteractorState extends State<SuperReaderIosDo
 
     widget.selection.value = null;
 
+    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
+    readerGesturesLog.fine(" - tapped document position: $docPosition");
     if (docPosition != null) {
       final tappedComponent = _docLayout.getComponentByNodeId(docPosition.nodeId)!;
       if (!tappedComponent.isVisualSelectionSupported()) {
@@ -1146,10 +1164,10 @@ class SuperReaderIosMagnifierOverlayManagerState extends State<SuperReaderIosMag
       magnifierKey: magnifierKey,
       show: visible,
       leaderLink: magnifierFocalPoint,
-      // The bottom of the magnifier sits above the focal point.
-      // Leave a few pixels between the bottom of the magnifier and the focal point. This
-      // value was chosen empirically.
-      offsetFromFocalPoint: const Offset(0, -20),
+      // The magnifier is centered with the focal point. Translate it so that it sits
+      // above the focal point and leave a few pixels between the bottom of the magnifier
+      // and the focal point. This value was chosen empirically.
+      offsetFromFocalPoint: Offset(0, (-defaultIosMagnifierSize.height / 2) - 20),
       handleColor: _controlsContext!.handleColor,
     );
   }

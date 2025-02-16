@@ -259,6 +259,29 @@ class SuperEditorAndroidControlsController {
     }
   }
 
+  /// {@template are_selection_handles_allowed}
+  /// Whether or not the selection handles are allowed to be displayed.
+  ///
+  /// Typically, whenever the selection changes the drag handles are displayed. However,
+  /// there are some cases where we want to select some content, but don't show the
+  /// drag handles. For example, when the user taps a misspelled word, we might want to select
+  /// the misspelled word without showing any handles.
+  ///
+  /// Defaults to `true`.
+  /// {@endtemplate}
+  ValueListenable<bool> get areSelectionHandlesAllowed => _areSelectionHandlesAllowed;
+  final _areSelectionHandlesAllowed = ValueNotifier<bool>(true);
+
+  /// Temporarily prevents any selection handles from being displayed.
+  ///
+  /// Call this when you want to select some content, but don't want to show the drag handles.
+  /// [allowSelectionHandles] must be called to allow the drag handles to be displayed again.
+  void preventSelectionHandles() => _areSelectionHandlesAllowed.value = false;
+
+  /// Allows the selection handles to be displayed after they have been temporarily
+  /// prevented by [preventSelectionHandles].
+  void allowSelectionHandles() => _areSelectionHandlesAllowed.value = true;
+
   /// (Optional) Builder to create the visual representation of the expanded drag handles.
   ///
   /// If [expandedHandlesBuilder] is `null`, default Android handles are displayed.
@@ -405,10 +428,11 @@ class AndroidDocumentTouchInteractor extends StatefulWidget {
     required this.document,
     required this.getDocumentLayout,
     required this.selection,
+    this.openKeyboardWhenTappingExistingSelection = true,
     required this.openSoftwareKeyboard,
     required this.scrollController,
     required this.fillViewport,
-    this.contentTapHandler,
+    this.contentTapHandlers,
     this.dragAutoScrollBoundary = const AxisOffset.symmetric(54),
     required this.dragHandleAutoScroller,
     this.showDebugPaint = false,
@@ -422,12 +446,18 @@ class AndroidDocumentTouchInteractor extends StatefulWidget {
   final DocumentLayout Function() getDocumentLayout;
   final ValueListenable<DocumentSelection?> selection;
 
+  /// {@macro openKeyboardWhenTappingExistingSelection}
+  final bool openKeyboardWhenTappingExistingSelection;
+
   /// A callback that should open the software keyboard when invoked.
   final VoidCallback openSoftwareKeyboard;
 
-  /// Optional handler that responds to taps on content, e.g., opening
+  /// Optional list of handlers that respond to taps on content, e.g., opening
   /// a link when the user taps on text with a link attribution.
-  final ContentTapDelegate? contentTapHandler;
+  ///
+  /// If a handler returns [TapHandlingInstruction.halt], no subsequent handlers
+  /// nor the default tap behavior will be executed.
+  final List<ContentTapDelegate>? contentTapHandlers;
 
   final ScrollController scrollController;
 
@@ -728,17 +758,26 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
     editorGesturesLog.info("Tap down on document");
     final docOffset = _getDocumentOffsetFromGlobalOffset(details.globalPosition);
     editorGesturesLog.fine(" - document offset: $docOffset");
-    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
-    editorGesturesLog.fine(" - tapped document position: $docPosition");
 
-    if (widget.contentTapHandler != null && docPosition != null) {
-      final result = widget.contentTapHandler!.onTap(docPosition);
-      if (result == TapHandlingInstruction.halt) {
-        // The custom tap handler doesn't want us to react at all
-        // to the tap.
-        return;
+    if (widget.contentTapHandlers != null) {
+      for (final handler in widget.contentTapHandlers!) {
+        final result = handler.onTap(
+          DocumentTapDetails(
+            documentLayout: _docLayout,
+            layoutOffset: docOffset,
+            globalOffset: details.globalPosition,
+          ),
+        );
+        if (result == TapHandlingInstruction.halt) {
+          // The custom tap handler doesn't want us to react at all
+          // to the tap.
+          return;
+        }
       }
     }
+
+    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
+    editorGesturesLog.fine(" - tapped document position: $docPosition");
 
     bool didTapOnExistingSelection = false;
     if (docPosition != null) {
@@ -771,7 +810,7 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
 
     _showAndHideEditingControlsAfterTapSelection(didTapOnExistingSelection: didTapOnExistingSelection);
 
-    if (didTapOnExistingSelection) {
+    if (didTapOnExistingSelection && widget.openKeyboardWhenTappingExistingSelection) {
       // The user tapped on the existing selection. Show the software keyboard.
       //
       // If the user didn't tap on an existing selection, the software keyboard will
@@ -786,17 +825,26 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
     editorGesturesLog.info("Double tap down on document");
     final docOffset = _getDocumentOffsetFromGlobalOffset(details.globalPosition);
     editorGesturesLog.fine(" - document offset: $docOffset");
-    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
-    editorGesturesLog.fine(" - tapped document position: $docPosition");
 
-    if (docPosition != null && widget.contentTapHandler != null) {
-      final result = widget.contentTapHandler!.onDoubleTap(docPosition);
-      if (result == TapHandlingInstruction.halt) {
-        // The custom tap handler doesn't want us to react at all
-        // to the tap.
-        return;
+    if (widget.contentTapHandlers != null) {
+      for (final handler in widget.contentTapHandlers!) {
+        final result = handler.onDoubleTap(
+          DocumentTapDetails(
+            documentLayout: _docLayout,
+            layoutOffset: docOffset,
+            globalOffset: details.globalPosition,
+          ),
+        );
+        if (result == TapHandlingInstruction.halt) {
+          // The custom tap handler doesn't want us to react at all
+          // to the tap.
+          return;
+        }
       }
     }
+
+    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
+    editorGesturesLog.fine(" - tapped document position: $docPosition");
 
     if (docPosition != null) {
       final tappedComponent = _docLayout.getComponentByNodeId(docPosition.nodeId)!;
@@ -860,18 +908,26 @@ class _AndroidDocumentTouchInteractorState extends State<AndroidDocumentTouchInt
     editorGesturesLog.info("Triple tap down on document");
     final docOffset = _getDocumentOffsetFromGlobalOffset(details.globalPosition);
     editorGesturesLog.fine(" - document offset: $docOffset");
-    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
-    editorGesturesLog.fine(" - tapped document position: $docPosition");
 
-    if (docPosition != null && widget.contentTapHandler != null) {
-      final result = widget.contentTapHandler!.onTripleTap(docPosition);
-      if (result == TapHandlingInstruction.halt) {
-        // The custom tap handler doesn't want us to react at all
-        // to the tap.
-        return;
+    if (widget.contentTapHandlers != null) {
+      for (final handler in widget.contentTapHandlers!) {
+        final result = handler.onTripleTap(
+          DocumentTapDetails(
+            documentLayout: _docLayout,
+            layoutOffset: docOffset,
+            globalOffset: details.globalPosition,
+          ),
+        );
+        if (result == TapHandlingInstruction.halt) {
+          // The custom tap handler doesn't want us to react at all
+          // to the tap.
+          return;
+        }
       }
     }
 
+    final docPosition = _docLayout.getDocumentPositionNearestToOffset(docOffset);
+    editorGesturesLog.fine(" - tapped document position: $docPosition");
     if (docPosition != null) {
       // The user tapped a non-selectable component, so we can't select a paragraph.
       // The editor will remain focused and selection will remain in the nearest
@@ -1722,6 +1778,7 @@ class SuperEditorAndroidControlsOverlayManagerState extends State<SuperEditorAnd
           link: _controlsController!.collapsedHandleFocalPoint,
           leaderAnchor: Alignment.bottomCenter,
           followerAnchor: Alignment.topCenter,
+          showWhenUnlinked: false,
           // Use the offset to account for the invisible expanded touch region around the handle.
           offset: -Offset(0, AndroidSelectionHandle.defaultTouchRegionExpansion.top) *
               MediaQuery.devicePixelRatioOf(context),
@@ -1792,6 +1849,7 @@ class SuperEditorAndroidControlsOverlayManagerState extends State<SuperEditorAnd
             link: _controlsController!.upstreamHandleFocalPoint,
             leaderAnchor: Alignment.bottomLeft,
             followerAnchor: Alignment.topRight,
+            showWhenUnlinked: false,
             // Use the offset to account for the invisible expanded touch region around the handle.
             offset:
                 -AndroidSelectionHandle.defaultTouchRegionExpansion.topRight * MediaQuery.devicePixelRatioOf(context),
@@ -1822,6 +1880,7 @@ class SuperEditorAndroidControlsOverlayManagerState extends State<SuperEditorAnd
             link: _controlsController!.downstreamHandleFocalPoint,
             leaderAnchor: Alignment.bottomRight,
             followerAnchor: Alignment.topLeft,
+            showWhenUnlinked: false,
             // Use the offset to account for the invisible expanded touch region around the handle.
             offset:
                 -AndroidSelectionHandle.defaultTouchRegionExpansion.topLeft * MediaQuery.devicePixelRatioOf(context),
@@ -1915,23 +1974,20 @@ class SuperEditorAndroidControlsOverlayManagerState extends State<SuperEditorAnd
       return const SizedBox();
     }
 
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     return Follower.withOffset(
       link: _controlsController!.magnifierFocalPoint,
-      offset: const Offset(0, -150),
+      offset: Offset(0, -54 * devicePixelRatio),
       leaderAnchor: Alignment.center,
-      followerAnchor: Alignment.topLeft,
-      // Theoretically, we should be able to use a leaderAnchor and followerAnchor of "center"
-      // and avoid the following FractionalTranslation. However, when centering the follower,
-      // we don't get the expect focal point within the magnified area. It's off-center. I'm not
-      // sure why that happens, but using a followerAnchor of "topLeft" and then pulling back
-      // by 50% solve the problem.
-      child: FractionalTranslation(
-        translation: const Offset(-0.5, -0.5),
-        child: AndroidMagnifyingGlass(
-          key: magnifierKey,
-          magnificationScale: 1.5,
-          offsetFromFocalPoint: Offset(0, -150 / MediaQuery.devicePixelRatioOf(context)),
-        ),
+      followerAnchor: Alignment.center,
+      boundary: ScreenFollowerBoundary(
+        screenSize: MediaQuery.sizeOf(context),
+        devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      ),
+      child: AndroidMagnifyingGlass(
+        key: magnifierKey,
+        magnificationScale: 1.5,
+        offsetFromFocalPoint: const Offset(0, -54),
       ),
     );
   }

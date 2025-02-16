@@ -15,6 +15,7 @@ import '../core/document_layout.dart';
 final _log = Logger(scope: 'box_component.dart');
 
 /// Base implementation for a [DocumentNode] that only supports [UpstreamDownstreamNodeSelection]s.
+@immutable
 abstract class BlockNode extends DocumentNode {
   BlockNode({
     Map<String, dynamic>? metadata,
@@ -307,7 +308,7 @@ class SelectableBox extends StatelessWidget {
       child: IgnorePointer(
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: isSelected ? selectionColor.withOpacity(0.5) : Colors.transparent,
+            color: isSelected ? selectionColor.withValues(alpha: 0.5) : Colors.transparent,
           ),
           position: DecorationPosition.foreground,
           child: child,
@@ -353,7 +354,7 @@ class DeleteUpstreamAtBeginningOfBlockNodeCommand extends EditCommand {
       return;
     }
 
-    if (nodeBefore is TextNode && nodeBefore.text.text.isEmpty) {
+    if (nodeBefore is TextNode && nodeBefore.text.isEmpty) {
       executor.executeCommand(
         DeleteNodeCommand(nodeId: nodeBefore.id),
       );
