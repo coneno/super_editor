@@ -21,9 +21,9 @@ extension ComputeTextSpan on AttributedText {
   /// and constructs [TextStyle]s accordingly.
   ///
   /// The given [inlineWidgetBuilder] interprets every placeholder `Object`
-  /// and builds a corresponding inline widget.
+  /// and builds a corresponding inline widget. [context] must not be null.
   InlineSpan computeInlineSpan(
-    BuildContext context,
+    BuildContext? context,
     AttributionStyleBuilder styleBuilder,
     InlineWidgetBuilderChain inlineWidgetBuilders,
   ) {
@@ -41,7 +41,7 @@ extension ComputeTextSpan on AttributedText {
     int start = 0;
     while (start < length) {
       late int contentEnd;
-      if (placeholders[start] != null) {
+      if (placeholders[start] != null && context != null) {
         // This section is a placeholder.
         contentEnd = start + 1;
 
