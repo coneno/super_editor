@@ -828,7 +828,7 @@ class TextComponentState extends State<TextComponent> with DocumentComponent imp
     }
 
     final selection = TextSelection(
-      baseOffset: baseNodePosition.offset,
+      baseOffset: baseNodePosition.offset >= 0 ? baseNodePosition.offset : 0,
       extentOffset: extentNodePosition.offset >= 0 ? extentNodePosition.offset : 0,
     );
 
