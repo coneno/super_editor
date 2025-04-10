@@ -457,7 +457,6 @@ class _KeyboardPanelScaffoldState<PanelType> extends State<KeyboardPanelScaffold
   /// the current software keyboard height.
   void _updateKeyboardHeightForCurrentViewInsets() {
     final newBottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    _currentKeyboardHeight = newBottomInset;
 
     switch (_keyboardState) {
       case KeyboardState.open:
@@ -491,8 +490,14 @@ class _KeyboardPanelScaffoldState<PanelType> extends State<KeyboardPanelScaffold
         // receive a message that the keyboard was closed, but still have bottom insets that reported
         // the height of the minimized keyboard. To hack around that, we explicitly set the keyboard
         // height to zero, when closed.
-        if (_currentKeyboardHeight > 0) {
+        if (newBottomInset > 0) {
           _currentKeyboardHeight = 0.0;
+          onNextFrame((_) => _updateSafeArea());
+          break;
+        }
+
+        if (newBottomInset != _currentKeyboardHeight) {
+          // Update the safe area to account for the new height value.
           onNextFrame((_) => _updateSafeArea());
         }
         break;
@@ -514,6 +519,7 @@ class _KeyboardPanelScaffoldState<PanelType> extends State<KeyboardPanelScaffold
         break;
     }
 
+    _currentKeyboardHeight = newBottomInset;
     _currentBottomSpacing.value = max(_panelHeight.value, _currentKeyboardHeight);
 
     setState(() {
@@ -647,14 +653,14 @@ Building keyboard scaffold
 /// Shows and hides the keyboard panel and software keyboard.
 class KeyboardPanelController<PanelType> {
   KeyboardPanelController(
-    this._softwareKeyboardController,
+    this.softwareKeyboardController,
   );
 
   void dispose() {
     detach();
   }
 
-  final SoftwareKeyboardController _softwareKeyboardController;
+  final SoftwareKeyboardController softwareKeyboardController;
 
   KeyboardPanelScaffoldDelegate<PanelType>? _delegate;
 
@@ -668,7 +674,7 @@ class KeyboardPanelController<PanelType> {
   void attach(KeyboardPanelScaffoldDelegate<PanelType> delegate) {
     editorImeLog.finer("[KeyboardPanelController] - Attaching to delegate: $delegate");
     _delegate = delegate;
-    _delegate!.onAttached(_softwareKeyboardController);
+    _delegate!.onAttached(softwareKeyboardController);
   }
 
   /// Detaches this controller from its delegate.
@@ -1110,7 +1116,22 @@ class _KeyboardScaffoldSafeAreaState extends State<KeyboardScaffoldSafeArea> {
     var bottomInsets = keyboardSafeArea.bottomInsets;
     if (_myBoxKey.currentContext != null && _myBoxKey.currentContext!.findRenderObject() != null) {
       final myBox = _myBoxKey.currentContext!.findRenderObject() as RenderBox;
-      final myGlobalBottom = myBox.localToGlobal(Offset(0, myBox.size.height)).dy;
+
+      late final double myGlobalBottom;
+      try {
+        myGlobalBottom = myBox.localToGlobal(Offset(0, myBox.size.height)).dy;
+      } catch (exception) {
+        // It was found in a client app that there can be situations where at
+        // this moment some render object in the ancestor chain isn't yet laid
+        // out. This results in an exception. The best we can do is return zero.
+        if (isLogActive(keyboardPanelLog)) {
+          keyboardPanelLog.warning(
+            "KeyboardScaffoldSafeArea (${widget.debugLabel}) - Tried to measure our global bottom offset on the screen but caused an exception, likely due to an ancestor not yet being laid out.\nException: $exception\nStacktrace:\n${StackTrace.current}",
+          );
+        }
+        return 0;
+      }
+
       if (myGlobalBottom.isNaN) {
         // We've found in a client app that under some unknown circumstances we get NaN
         // from localToGlobal(). We're not sure why. In that case, log a warning and return zero.
