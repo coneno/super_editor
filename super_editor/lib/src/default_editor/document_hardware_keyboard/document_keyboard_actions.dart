@@ -772,9 +772,9 @@ ExecutionInstruction moveToLineStartWithHome({
     return ExecutionInstruction.continueExecution;
   }
 
-  if (defaultTargetPlatform != TargetPlatform.windows && defaultTargetPlatform != TargetPlatform.linux) {
-    return ExecutionInstruction.continueExecution;
-  }
+  // if (defaultTargetPlatform != TargetPlatform.windows && defaultTargetPlatform != TargetPlatform.linux) {
+  //   return ExecutionInstruction.continueExecution;
+  // }
 
   bool didMove = false;
   if (keyEvent.logicalKey == LogicalKeyboardKey.home) {
@@ -795,9 +795,9 @@ ExecutionInstruction moveToLineEndWithEnd({
     return ExecutionInstruction.continueExecution;
   }
 
-  if (defaultTargetPlatform != TargetPlatform.windows && defaultTargetPlatform != TargetPlatform.linux) {
-    return ExecutionInstruction.continueExecution;
-  }
+  // if (defaultTargetPlatform != TargetPlatform.windows && defaultTargetPlatform != TargetPlatform.linux) {
+  //   return ExecutionInstruction.continueExecution;
+  // }
 
   bool didMove = false;
   if (keyEvent.logicalKey == LogicalKeyboardKey.end) {
