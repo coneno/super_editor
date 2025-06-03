@@ -673,7 +673,7 @@ class SuperEditorState extends State<SuperEditor> {
       return;
     }
 
-    _softwareKeyboardController.open();
+    _softwareKeyboardController.open(viewId: View.of(context).viewId);
   }
 
   @override
@@ -1101,7 +1101,6 @@ class DefaultAndroidEditorToolbar extends StatelessWidget {
 
   void _selectAll() {
     editorOps.selectAll();
-    editorControlsController.hideToolbar();
   }
 }
 
