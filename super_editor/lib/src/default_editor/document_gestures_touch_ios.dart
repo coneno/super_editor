@@ -375,6 +375,7 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
       getViewportBox: () => viewportBox,
     );
 
+    widget.focusNode.addListener(_onFocusChange);
     widget.document.addListener(_onDocumentChange);
 
     _floatingCursorListener = FloatingCursorListener(
@@ -409,6 +410,11 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
   void didUpdateWidget(IosDocumentTouchInteractor oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    if (widget.focusNode != oldWidget.focusNode) {
+      oldWidget.focusNode.removeListener(_onFocusChange);
+      widget.focusNode.addListener(_onFocusChange);
+    }
+
     if (widget.document != oldWidget.document) {
       oldWidget.document.removeListener(_onDocumentChange);
       widget.document.addListener(_onDocumentChange);
@@ -418,7 +424,9 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    widget.focusNode.removeListener(_onFocusChange);
 
+    _controlsController!.hideMagnifier();
     _controlsController!.floatingCursorController.removeListener(_floatingCursorListener);
     _controlsController!.floatingCursorController.cursorGeometryInViewport
         .removeListener(_onFloatingCursorGeometryChange);
@@ -472,6 +480,12 @@ class _IosDocumentTouchInteractorState extends State<IosDocumentTouchInteractor>
         : _documentOffsetToViewportOffset(selectionRectInDocumentLayout.topCenter);
 
     widget.dragHandleAutoScroller.value?.ensureOffsetIsVisible(extentOffsetInViewport);
+  }
+
+  void _onFocusChange() {
+    if (!widget.focusNode.hasFocus) {
+      _controlsController?.hideMagnifier();
+    }
   }
 
   void _onDocumentChange(_) {
