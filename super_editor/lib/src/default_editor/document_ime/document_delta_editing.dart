@@ -282,12 +282,19 @@ class TextDeltasDocumentEditor {
     editorImeLog.fine("Converting IME insertion offset into a DocumentSelection");
     final insertionSelection = _serializedDoc.imeToDocumentSelection(
       TextSelection.fromPosition(insertionPosition),
-    )!;
+    );
 
     // Update the local IME value that changes with each delta.
     _previousImeValue = delta.apply(_previousImeValue);
 
-    insert(insertionSelection, delta.textInserted);
+    if (insertionSelection == null) {
+      editorImeLog.fine("The IME insertion resolved to a null DocumentSelection. Inserting text at current caret.");
+      editor.execute([
+        InsertPlainTextAtCaretRequest(delta.textInserted),
+      ]);
+    } else {
+      insert(insertionSelection, delta.textInserted);
+    }
 
     // Update the IME to document serialization based on the insertion changes.
     _serializedDoc = DocumentImeSerializer(
