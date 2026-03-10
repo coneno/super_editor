@@ -361,6 +361,14 @@ class TextDeltasDocumentEditor {
     // Update the local IME value that changes with each delta.
     _previousImeValue = delta.apply(_previousImeValue);
 
+    // Update the IME to document serialization based on the deletion changes.
+    _serializedDoc = DocumentImeSerializer(
+      document,
+      selection.value!,
+      composingRegion.value,
+      _serializedDoc.didPrependPlaceholder ? PrependedCharacterPolicy.include : PrependedCharacterPolicy.exclude,
+    );
+
     editorImeLog.fine("Deletion operation complete");
   }
 
@@ -368,6 +376,13 @@ class TextDeltasDocumentEditor {
     editorImeLog.fine("Non-text change:");
     editorImeLog.fine("OS-side selection - ${delta.selection}");
     editorImeLog.fine("OS-side composing - ${delta.composing}");
+
+    if (delta.oldText != _serializedDoc.imeText) {
+      editorImeLog.warning("Skipping non-text change because IME text is out of sync with serialized document.");
+      editorImeLog.warning("Expected: '${_serializedDoc.imeText}', Actual: '${delta.oldText}'");
+      _previousImeValue = delta.apply(_previousImeValue);
+      return;
+    }
 
     DocumentSelection? docSelection = _calculateNewDocumentSelection(delta);
     DocumentRange? docComposingRegion = _calculateNewComposingRegion([delta]);
@@ -662,6 +677,17 @@ class TextDeltasDocumentEditor {
 
   DocumentRange? _calculateNewComposingRegion(List<TextEditingDelta> deltas) {
     final lastDelta = deltas.last;
+
+    // Check if the IME string is out of sync with our serialized document.
+    // If so, our offset mappings are invalid for the current composing region.
+    // Return null to clear the composing region instead of mapping to the wrong text.
+    final expectedImeText = _nextImeValue?.text ?? _previousImeValue.text;
+    if (_serializedDoc.imeText != expectedImeText) {
+      editorImeLog.warning("Clearing composing region because IME text is out of sync with serialized document.");
+      editorImeLog.warning("Expected: '${_serializedDoc.imeText}', Actual: '$expectedImeText'");
+      return null;
+    }
+
     if (CurrentPlatform.isWeb &&
         lastDelta.composing.isCollapsed &&
         _serializedDoc.isPositionInsidePlaceholder(TextPosition(offset: lastDelta.composing.end))) {
