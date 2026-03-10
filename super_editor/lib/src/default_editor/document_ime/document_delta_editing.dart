@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:super_editor/src/core/document.dart';
@@ -41,6 +43,114 @@ class TextDeltasDocumentEditor {
   late DocumentImeSerializer _serializedDoc;
   late TextEditingValue _previousImeValue;
   TextEditingValue? _nextImeValue;
+
+  /// Applies a full [TextEditingValue] update from the platform by converting it
+  /// into the equivalent delta sequence for the current document state.
+  void applyTextEditingValue(TextEditingValue newImeValue) {
+    final syntheticDeltas = _createSyntheticDeltasForTextEditingValue(newImeValue);
+    if (syntheticDeltas.isEmpty) {
+      return;
+    }
+
+    applyDeltas(syntheticDeltas);
+  }
+
+  List<TextEditingDelta> _createSyntheticDeltasForTextEditingValue(TextEditingValue newImeValue) {
+    final currentImeValue = _serializeCurrentImeValue();
+
+    if (currentImeValue == newImeValue) {
+      return const <TextEditingDelta>[];
+    }
+
+    final textChangeDelta = _createSyntheticTextChangeDelta(
+      oldImeValue: currentImeValue,
+      newImeValue: newImeValue,
+    );
+    if (textChangeDelta != null) {
+      return [textChangeDelta];
+    }
+
+    return [
+      TextEditingDeltaNonTextUpdate(
+        oldText: currentImeValue.text,
+        selection: newImeValue.selection,
+        composing: newImeValue.composing,
+      ),
+    ];
+  }
+
+  TextEditingValue _serializeCurrentImeValue() {
+    final serializedDoc = DocumentImeSerializer(
+      document,
+      selection.value!,
+      composingRegion.value,
+    );
+
+    return TextEditingValue(
+      text: serializedDoc.imeText,
+      selection: selection.value != null
+          ? serializedDoc.documentToImeSelection(selection.value!)
+          : const TextSelection.collapsed(offset: -1),
+      composing: serializedDoc.documentToImeRange(serializedDoc.composingRegion),
+    );
+  }
+
+  TextEditingDelta? _createSyntheticTextChangeDelta({
+    required TextEditingValue oldImeValue,
+    required TextEditingValue newImeValue,
+  }) {
+    if (oldImeValue.text == newImeValue.text) {
+      return null;
+    }
+
+    final oldText = oldImeValue.text;
+    final newText = newImeValue.text;
+
+    int prefixLength = 0;
+    final minTextLength = min(oldText.length, newText.length);
+    while (prefixLength < minTextLength && oldText.codeUnitAt(prefixLength) == newText.codeUnitAt(prefixLength)) {
+      prefixLength += 1;
+    }
+
+    int oldSuffixStart = oldText.length;
+    int newSuffixStart = newText.length;
+    while (oldSuffixStart > prefixLength &&
+        newSuffixStart > prefixLength &&
+        oldText.codeUnitAt(oldSuffixStart - 1) == newText.codeUnitAt(newSuffixStart - 1)) {
+      oldSuffixStart -= 1;
+      newSuffixStart -= 1;
+    }
+
+    final replacedRange = TextRange(start: prefixLength, end: oldSuffixStart);
+    final replacementText = newText.substring(prefixLength, newSuffixStart);
+
+    if (replacedRange.isCollapsed) {
+      return TextEditingDeltaInsertion(
+        oldText: oldText,
+        textInserted: replacementText,
+        insertionOffset: prefixLength,
+        selection: newImeValue.selection,
+        composing: newImeValue.composing,
+      );
+    }
+
+    if (replacementText.isEmpty) {
+      return TextEditingDeltaDeletion(
+        oldText: oldText,
+        deletedRange: replacedRange,
+        selection: newImeValue.selection,
+        composing: newImeValue.composing,
+      );
+    }
+
+    return TextEditingDeltaReplacement(
+      oldText: oldText,
+      replacementText: replacementText,
+      replacedRange: replacedRange,
+      selection: newImeValue.selection,
+      composing: newImeValue.composing,
+    );
+  }
 
   /// Applies the given [textEditingDeltas] to the [Document].
   void applyDeltas(List<TextEditingDelta> textEditingDeltas) {

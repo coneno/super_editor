@@ -668,7 +668,7 @@ class _TestSuperEditorState extends State<_TestSuperEditor> {
       softwareKeyboardController: widget.testConfiguration.softwareKeyboardController,
       imePolicies: widget.testConfiguration.imePolicies ?? const SuperEditorImePolicies(),
       imeConfiguration: widget.testConfiguration.imeConfiguration,
-      imeOverrides: widget.testConfiguration.imeOverrides,
+      imeOverrides: widget.testConfiguration.imeOverrides, floatingCursorColor: const Color(0xFF0000FF),
       isImeConnected: widget.testConfiguration.isImeConnected,
       keyboardActions: [
         ...widget.testConfiguration.prependedKeyboardActions,

@@ -187,7 +187,22 @@ class DocumentImeInputClient extends TextInputConnectionDecorator with TextInput
 
   @override
   void updateEditingValue(TextEditingValue value) {
-    editorImeLog.shout("Delta text input client received a non-delta TextEditingValue from OS: $value");
+    if (_isApplyingDeltas) {
+      editorImeLog.fine("Ignoring non-delta TextEditingValue because we're already applying platform edits");
+      return;
+    }
+
+    editorImeLog.fine("Received non-delta TextEditingValue from platform: $value");
+
+    _isApplyingDeltas = true;
+    try {
+      _platformTextEditingValue = value;
+      textDeltasDocumentEditor.applyTextEditingValue(value);
+    } finally {
+      _isApplyingDeltas = false;
+    }
+
+    _sendDocumentToIme();
   }
 
   @override

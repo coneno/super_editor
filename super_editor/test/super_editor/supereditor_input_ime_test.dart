@@ -422,6 +422,48 @@ void main() {
         // Ensure that the empty paragraph now reads "ü".
         expect((editContext.document.getNodeAt(1)! as ParagraphNode).text.toPlainText(), "ü");
       });
+
+      testWidgetsOnAllPlatforms('applies non-delta TextEditingValue updates from the platform', (tester) async {
+        final editContext = await tester //
+            .createDocument()
+            .withTwoEmptyParagraphs()
+            .withInputSource(TextInputSource.ime)
+            .withGestureMode(DocumentGestureMode.mouse)
+            .autoFocus(true)
+            .pump();
+
+        // Start in the 2nd paragraph so that the IME serialization includes the
+        // invisible placeholder characters used at the start of empty nodes.
+        await tester.placeCaretInParagraph("2", 0);
+
+        final imeInteractor = find.byType(SuperEditorImeInteractor).evaluate().first;
+        final imeClient = ((imeInteractor as StatefulElement).state as ImeInputOwner).imeClient;
+
+        expect(imeClient.currentTextEditingValue!.text, ". ");
+        expect(imeClient.currentTextEditingValue!.selection, const TextSelection.collapsed(offset: 2));
+
+        // Simulate an IME that reports the composing text with a full editing value,
+        // instead of as text deltas.
+        imeClient.updateEditingValue(const TextEditingValue(
+          text: '. cg',
+          selection: TextSelection.collapsed(offset: 4),
+          composing: TextRange(start: 2, end: 4),
+        ));
+        await tester.pumpAndSettle();
+
+        expect((editContext.document.getNodeAt(1)! as ParagraphNode).text.toPlainText(), 'cg');
+
+        // Simulate the IME committing the selected candidate with another full value.
+        imeClient.updateEditingValue(const TextEditingValue(
+          text: '. 字',
+          selection: TextSelection.collapsed(offset: 3),
+          composing: TextRange(start: -1, end: -1),
+        ));
+        await tester.pumpAndSettle();
+
+        expect((editContext.document.getNodeAt(1)! as ParagraphNode).text.toPlainText(), '字');
+        expect(editContext.composer.composingRegion.value, isNull);
+      });
     });
 
     // Note: Some Android devices report ENTER and BACKSPACE as hardware keys. Other Android
