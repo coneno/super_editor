@@ -279,6 +279,19 @@ class TextDeltasDocumentEditor {
       return;
     }
 
+    if (defaultTargetPlatform == TargetPlatform.windows &&
+        delta.textInserted == ' ' &&
+        delta.composing.isValid &&
+        delta.composing.start == insertionPosition.offset &&
+        delta.composing.end == insertionPosition.offset + 1) {
+      // The Weasel IME on Windows often inserts a phantom space wrapped in a composing
+      // region before inserting a Chinese candidate.
+      // We drop this space to prevent text corruption where each candidate begins with a space.
+      editorImeLog.fine("Dropping phantom space inserted by Windows IME during composition.");
+      _previousImeValue = delta.apply(_previousImeValue);
+      return;
+    }
+
     editorImeLog.fine("Converting IME insertion offset into a DocumentSelection");
     final insertionSelection = _serializedDoc.imeToDocumentSelection(
       TextSelection.fromPosition(insertionPosition),
