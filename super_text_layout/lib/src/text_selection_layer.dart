@@ -23,6 +23,7 @@ class TextLayoutSelectionHighlight extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
+      size: Size.infinite,
       painter: TextSelectionPainter(
         textLayout: textLayout,
         selectionColor: style.color,
@@ -56,6 +57,7 @@ class TextLayoutEmptyHighlight extends StatelessWidget {
     // to ignore the layout bounds and paint our desired width.
     final highlightHeight = textLayout!.getLineHeightAtPosition(const TextPosition(offset: -1));
     return CustomPaint(
+      size: Size.infinite,
       painter: _EmptyHighlightPainter(
         width: highlightWidth,
         height: highlightHeight,

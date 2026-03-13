@@ -80,6 +80,7 @@ class _AndroidTextFieldCaretState extends State<AndroidTextFieldCaret> with Sing
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
+      size: Size.infinite,
       painter: AndroidCursorPainter(
         blinkController: _caretBlinkController,
         textLayout: widget.textLayout,

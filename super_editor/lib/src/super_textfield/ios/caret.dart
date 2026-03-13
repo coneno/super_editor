@@ -64,6 +64,7 @@ class _IOSTextFieldCaretState extends State<IOSTextFieldCaret> with SingleTicker
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
+      size: Size.infinite,
       painter: _IOSCursorPainter(
         blinkController: _caretBlinkController,
         textLayout: widget.textLayout,
