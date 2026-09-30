@@ -929,7 +929,7 @@ Uri? tryToParseUrl(String word) {
   final int emailCount = extractedEmails.fold(0, (value, element) => element is EmailElement ? value + 1 : value);
   if (emailCount == 1) {
     // Found exactly one email. Create and return a link attribution.
-    final emailElement = extractedEmails.first as EmailElement;
+    final emailElement = extractedEmails.whereType<EmailElement>().single;
     return Uri(
       scheme: "mailto",
       path: emailElement.emailAddress,
