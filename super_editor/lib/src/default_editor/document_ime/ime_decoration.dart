@@ -34,6 +34,10 @@ abstract class TextInputConnectionDecorator implements TextInputConnection {
   @override
   void setComposingRect(Rect rect) => client?.setComposingRect(rect);
 
+  // Flutter 3.47 added TextInputConnection.updateStyle.
+  @override
+  void updateStyle(TextInputStyle style) => client?.updateStyle(style);
+
   @override
   void setStyle(
           {required String? fontFamily,
